@@ -782,6 +782,8 @@ const adminApp = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    adminApp.init();
-});
+window.adminApp = adminApp;
+
+// document.addEventListener('DOMContentLoaded', () => {
+//     adminApp.init();
+// });

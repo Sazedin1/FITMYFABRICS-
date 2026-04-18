@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Development prototype rules
+    // WARNING: These rules are open. For production, please configure Firebase Authentication 
+    // and restrict writes to verified admin users only.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

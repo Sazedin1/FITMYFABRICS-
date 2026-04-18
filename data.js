@@ -1,5 +1,12 @@
 // data.js - Shared data layer for FIT MY FABRICS
 
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from 'firebase/firestore';
+import firebaseConfig from './firebase-applet-config.json';
+
+const firebaseApp = initializeApp(firebaseConfig);
+const firestore = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+
 const DB_PREFIX = 'fmf_';
 
 const defaultSettings = {
@@ -107,7 +114,8 @@ const db = {
         const data = db.get(table);
         item.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
         data.push(item);
-        db.set(table, data);
+        localStorage.setItem(DB_PREFIX + table, JSON.stringify(data));
+        setDoc(doc(firestore, table, item.id), item);
         return item;
     },
     update: (table, id, updates) => {
@@ -115,18 +123,63 @@ const db = {
         const index = data.findIndex(item => item.id === id);
         if (index !== -1) {
             data[index] = { ...data[index], ...updates };
-            db.set(table, data);
+            localStorage.setItem(DB_PREFIX + table, JSON.stringify(data));
+            setDoc(doc(firestore, table, id), data[index]);
             return data[index];
         }
         return null;
     },
     delete: (table, id) => {
         const data = db.get(table);
-        db.set(table, data.filter(item => item.id !== id));
+        localStorage.setItem(DB_PREFIX + table, JSON.stringify(data.filter(item => item.id !== id)));
+        deleteDoc(doc(firestore, table, id));
     },
     getSettings: () => JSON.parse(localStorage.getItem(DB_PREFIX + 'settings') || '{}'),
-    setSettings: (settings) => localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(settings))
+    setSettings: (settings) => {
+        localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(settings));
+        setDoc(doc(firestore, 'system', 'settings'), settings);
+    }
 };
+
+let syncReadyCount = 0;
+const syncTables = ['categories', 'products', 'coupons', 'orders', 'banners', 'admins', 'customers'];
+
+syncTables.forEach(table => {
+    onSnapshot(collection(firestore, table), (snapshot) => {
+        const data = [];
+        snapshot.forEach(doc => data.push(doc.data()));
+        localStorage.setItem(DB_PREFIX + table, JSON.stringify(data));
+        syncReadyCount++;
+        checkIfAppReady();
+    });
+});
+
+onSnapshot(doc(firestore, 'system', 'settings'), (docSnap) => {
+    if (docSnap.exists()) {
+        localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(docSnap.data()));
+    }
+    syncReadyCount++;
+    checkIfAppReady();
+});
+
+let isAppInitialized = false;
+function checkIfAppReady() {
+    // Wait until all 7 collections + 1 settings document are synced at least once
+    if (syncReadyCount >= 8 && !isAppInitialized) {
+        isAppInitialized = true;
+        if (window.app && window.app.init) window.app.init();
+        if (window.adminApp && window.adminApp.init) window.adminApp.init();
+    } else if (isAppInitialized) {
+        // If data changes AFTER initialization, refresh app views.
+        if (window.app && window.app.renderHome) {
+            // Using hash routing
+            window.app.navigate(window.app.currentRoute || 'home');
+        }
+        if (window.adminApp && window.adminApp.renderDashboard) {
+            window.adminApp.navigate(window.adminApp.currentRoute || 'dashboard');
+        }
+    }
+}
 
 // Image compression helper
 function compressImage(file, maxWidth = 800) {
@@ -181,6 +234,10 @@ function showToast(message, type = 'success') {
 }
 
 // Format Currency
-function formatMoney(amount) {
+window.formatMoney = function(amount) {
     return '৳' + Number(amount).toLocaleString('en-IN');
 }
+
+window.db = db;
+window.showToast = showToast;
+window.compressImage = compressImage;

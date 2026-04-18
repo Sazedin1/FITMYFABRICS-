@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Setting": {
+      "title": "Setting",
+      "description": "Global store settings including maintenance mode",
+      "type": "object",
+      "properties": {
+        "storeName": { "type": "string" },
+        "maintenanceMode": { "type": "boolean" },
+        "adminEmails": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product category",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      }
+    },
+    "Product": {
+      "title": "Product",
+      "description": "E-commerce product",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "status": { "type": "string" }
+      }
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order",
+      "type": "object",
+      "properties": {
+        "customerEmail": { "type": "string" },
+        "total": { "type": "number" },
+        "items": { "type": "array" }
+      }
+    }
+  },
+  "firestore": {
+    "/system/{settingId}": {
+      "schema": "Setting",
+      "description": "Global settings for the store"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Store categories"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Store products"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders"
+    }
+  }
+}

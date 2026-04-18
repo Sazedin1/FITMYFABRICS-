@@ -89,7 +89,7 @@ const app = {
         if (logoText) {
             const mode = s.logoDisplayMode || 'logo-text';
             const defaultSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon></svg>`;
-            const logoImg = s.storeLogo ? `<img src="${s.storeLogo}" style="height: 32px; width: auto; object-fit: contain;">` : defaultSvg;
+            const logoImg = s.storeLogo ? `<img src="${s.storeLogo}" style="max-height: 48px; width: auto; object-fit: contain;">` : defaultSvg;
             const name = s.storeName || 'FIT MY FABRICS';
 
             if (mode === 'text-only') {
@@ -97,7 +97,7 @@ const app = {
             } else if (mode === 'logo-only') {
                 logoText.innerHTML = logoImg;
             } else {
-                logoText.innerHTML = `${logoImg} <span style="margin-left: 0.5rem;">${name}</span>`;
+                logoText.innerHTML = `${logoImg} <span>${name}</span>`;
             }
         }
     },
@@ -110,10 +110,10 @@ const app = {
         const sale = products.filter(p => p.discountPrice).slice(0, 4);
         const categories = db.get('categories').filter(c => c.status === 'Active').slice(0, 4);
 
-        const heroBg = s.heroImage ? `url(${s.heroImage})` : `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><rect width="100%" height="100%" fill="%231a1a1a"/></svg>')`;
+        const heroBg = s.heroImage ? `url(${s.heroImage})` : 'none';
 
         return `
-            <section class="hero" style="background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), ${heroBg} center/cover;">
+            <section class="hero" style="background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), ${heroBg} center/cover; background-color: var(--primary);">
                 <div class="container">
                     <h1>${s.heroHeadline || 'Wear Your Style'}</h1>
                     <p>${s.heroSubheadline || 'Discover the latest trends in Bangladeshi fashion.'}</p>
@@ -600,8 +600,7 @@ const app = {
         const index = customers.findIndex(c => c.email === this.tempResetEmail);
         
         if (index > -1) {
-            customers[index].password = newPass;
-            db.set('customers', customers);
+            db.update('customers', customers[index].id, { password: newPass });
             showToast('Password updated successfully!');
             this.closeModal('reset-modal');
             this.tempResetEmail = null;
@@ -957,7 +956,10 @@ const app = {
     }
 };
 
-// Initialize app on load
-document.addEventListener('DOMContentLoaded', () => {
-    app.init();
-});
+// Export app to window for inline HTML event handlers
+window.app = app;
+
+// Initialize app on load (managed by Firebase sync in data.js)
+// document.addEventListener('DOMContentLoaded', () => {
+//     app.init();
+// });
