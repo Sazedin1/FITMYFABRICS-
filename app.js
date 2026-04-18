@@ -959,7 +959,7 @@ const app = {
 // Export app to window for inline HTML event handlers
 window.app = app;
 
-// Initialize app on load (managed by Firebase sync in data.js)
-// document.addEventListener('DOMContentLoaded', () => {
-//     app.init();
-// });
+// Initialize app on load (Base UI rendered before DB sync finishes)
+document.addEventListener('DOMContentLoaded', () => {
+    app.init();
+});

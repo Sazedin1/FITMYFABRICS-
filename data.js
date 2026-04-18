@@ -1,7 +1,7 @@
 // data.js - Shared data layer for FIT MY FABRICS
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, getDocs } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 
 const firebaseApp = initializeApp(firebaseConfig);
@@ -173,10 +173,12 @@ function checkIfAppReady() {
         // If data changes AFTER initialization, refresh app views.
         if (window.app && window.app.renderHome) {
             // Using hash routing
-            window.app.navigate(window.app.currentRoute || 'home');
+            window.app.navigate(window.app.currentPage || 'home', window.app.currentParams || {});
         }
         if (window.adminApp && window.adminApp.renderDashboard) {
-            window.adminApp.navigate(window.adminApp.currentRoute || 'dashboard');
+            if (window.adminApp.currentUser) {
+                window.adminApp.navigate(window.adminApp.currentRoute || 'dashboard');
+            }
         }
     }
 }
@@ -241,3 +243,23 @@ window.formatMoney = function(amount) {
 window.db = db;
 window.showToast = showToast;
 window.compressImage = compressImage;
+
+// Seed Firebase if it's completely empty
+async function seedFirebase() {
+    try {
+        const prodSnapshot = await getDocs(collection(firestore, 'products'));
+        if (prodSnapshot.empty) {
+            console.log('Database empty! Seeding data...');
+            seedCategories.forEach(c => setDoc(doc(firestore, 'categories', c.id), c));
+            seedProducts.forEach(p => setDoc(doc(firestore, 'products', p.id), p));
+            seedCoupons.forEach(c => setDoc(doc(firestore, 'coupons', c.id), c));
+            setDoc(doc(firestore, 'system', 'settings'), defaultSettings);
+            setDoc(doc(firestore, 'admins', 'admin_1'), { email: 'admin@fitmyfabrics.com', password: 'Sagor22777@', role: 'master', name: 'Master Admin' });
+        }
+    } catch (e) {
+        console.error('Seed error:', e);
+    }
+}
+
+seedFirebase();
+

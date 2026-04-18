@@ -55,6 +55,7 @@ const adminApp = {
     },
 
     navigate(page, navElement) {
+        this.currentRoute = page;
         // Update active nav
         if (navElement) {
             document.querySelectorAll('.admin-nav a').forEach(el => el.classList.remove('active'));
@@ -784,6 +785,6 @@ const adminApp = {
 
 window.adminApp = adminApp;
 
-// document.addEventListener('DOMContentLoaded', () => {
-//     adminApp.init();
-// });
+document.addEventListener('DOMContentLoaded', () => {
+    adminApp.init();
+});
