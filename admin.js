@@ -586,12 +586,57 @@ const adminApp = {
         });
     },
 
-    updateOrderStatus(id) {
+    async updateOrderStatus(id) {
+        const order = db.getOne('orders', id);
+        if(!order) return;
+        
         const status = document.getElementById('update-order-status').value;
         db.update('orders', id, { status });
+        
+        if (order.customer && order.customer.email && order.status !== status) {
+            const msg = `Your order ${order.displayId} status has been updated to: ${status}.`;
+            await this.dispatchEmail(order.customer.email, msg, "Order Status Update: " + order.displayId);
+        }
+        
         showToast('Order status updated');
         this.closeModal('order-modal');
         this.navigate('orders');
+    },
+
+    async dispatchEmail(email, message, purpose) {
+        const settings = db.getSettings();
+        if (!settings.mailServiceId || !settings.mailTemplateId || !settings.mailPublicKey) {
+            console.log('EmailJS credentials missing. Check settings.');
+            return false;
+        }
+
+        try {
+            const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    service_id: settings.mailServiceId,
+                    template_id: settings.mailTemplateId,
+                    user_id: settings.mailPublicKey,
+                    template_params: {
+                        to_email: email,
+                        otp_code: message, // Assuming template uses {{otp_code}}
+                        purpose: purpose
+                    }
+                })
+            });
+
+            if (res.ok) {
+                console.log('Email sent successfully!');
+                return true;
+            } else {
+                console.error('EmailJS error:', await res.text());
+                return false;
+            }
+        } catch (error) {
+            console.error('Email dispatch failed:', error);
+            return false;
+        }
     },
 
     // --- Customers ---

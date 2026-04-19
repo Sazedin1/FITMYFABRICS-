@@ -345,36 +345,6 @@ const app = {
                             (c.district === 'Dhaka' ? parseInt(settings.deliveryInside || 0) : parseInt(settings.deliveryOutside || 0));
         const total = subtotal + deliveryFee;
 
-        // Script to handle gift checkbox and delivery district toggles
-        const checkoutScript = `
-            function toggleGift(e) {
-                const checked = e.target.checked;
-                document.getElementById('gift-fields').style.display = checked ? 'block' : 'none';
-                
-                const paymentDropdown = document.getElementById('co-payment');
-                const codOption = paymentDropdown.querySelector('option[value="cod"]');
-                
-                if (checked) {
-                    codOption.disabled = true;
-                    if (paymentDropdown.value === 'cod') {
-                        paymentDropdown.value = 'bkash';
-                    }
-                    app.togglePaymentInfo();
-                    
-                    document.getElementById('gift-name').required = true;
-                    document.getElementById('gift-phone').required = true;
-                    document.getElementById('gift-address').required = true;
-                } else {
-                    codOption.disabled = false;
-                    document.getElementById('gift-name').required = false;
-                    document.getElementById('gift-phone').required = false;
-                    document.getElementById('gift-address').required = false;
-                }
-                
-                app.updateCheckoutTotal();
-            }
-        `;
-
         return `
             <div class="container mt-2 mb-2">
                 <h1 style="margin-bottom: 2rem;">Checkout</h1>
@@ -392,7 +362,7 @@ const app = {
                             
                             <div class="form-group mt-1">
                                 <label style="display:flex; align-items:center; gap:0.5rem; font-weight:bold;">
-                                    <input type="checkbox" id="co-gift" onchange="toggleGift(event)" style="width:auto; height:auto;"> 
+                                    <input type="checkbox" id="co-gift" onchange="app.toggleGift(event)" style="width:auto; height:auto;"> 
                                     This order is a gift for someone else
                                 </label>
                             </div>
@@ -456,7 +426,6 @@ const app = {
                         </div>
                     </div>
                 </div>
-                <script>${checkoutScript}</script>
             </div>
         `;
     },
@@ -995,6 +964,33 @@ const app = {
         }
     },
 
+    toggleGift(e) {
+        const checked = e.target.checked;
+        document.getElementById('gift-fields').style.display = checked ? 'block' : 'none';
+        
+        const paymentDropdown = document.getElementById('co-payment');
+        const codOption = paymentDropdown.querySelector('option[value="cod"]');
+        
+        if (checked) {
+            codOption.disabled = true;
+            if (paymentDropdown.value === 'cod') {
+                paymentDropdown.value = 'bkash';
+            }
+            app.togglePaymentInfo();
+            
+            document.getElementById('gift-name').required = true;
+            document.getElementById('gift-phone').required = true;
+            document.getElementById('gift-address').required = true;
+        } else {
+            codOption.disabled = false;
+            document.getElementById('gift-name').required = false;
+            document.getElementById('gift-phone').required = false;
+            document.getElementById('gift-address').required = false;
+        }
+        
+        app.updateCheckoutTotal();
+    },
+
     updateCheckoutTotal() {
         const cart = db.get('cart');
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -1058,7 +1054,7 @@ const app = {
         `;
     },
 
-    placeOrder(e) {
+    async placeOrder(e) {
         e.preventDefault();
         const cart = db.get('cart');
         if (cart.length === 0) return;
@@ -1113,17 +1109,32 @@ const app = {
             subtotal: subtotal,
             deliveryFee: deliveryFee,
             total: subtotal + deliveryFee,
-            deliveryMethod: isGift ? document.getElementById('gift-district').value : this.currentCustomer.district,
+            deliveryMethod: isGift ? (document.getElementById('gift-district') ? document.getElementById('gift-district').value : district) : district,
             paymentMethod: paymentMethod,
             trxId: trxIdElement ? trxIdElement.value : '',
             status: 'Pending'
         };
 
-        db.add('orders', order);
-        db.set('cart', []); // clear cart
-        this.updateCartCount();
-        
-        this.navigate('success', { orderId: order.id });
+        try {
+            db.add('orders', order);
+            db.set('cart', []); // clear cart
+            this.updateCartCount();
+            
+            // Generate Thank You Message for Email
+            let emailMsg = "Thank you for your order! Your Order ID is " + order.displayId + ". ";
+            emailMsg += "Total Amount: BDT " + order.total + ". ";
+            emailMsg += "We will contact you shortly.";
+            
+            // Send Email asynchronously (don't force wait if it fails we still show success page)
+            if (order.customer.email) {
+                this.dispatchEmail(order.customer.email, emailMsg, "Order Confirmation: " + order.displayId);
+            }
+            
+            this.navigate('success', { orderId: order.id });
+        } catch (error) {
+            console.error("Error placing order:", error);
+            showToast('Something went wrong', 'error');
+        }
     },
 
     trackOrder() {
