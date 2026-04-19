@@ -512,8 +512,9 @@ const app = {
         const settings = db.getSettings();
         if (settings.mailProvider === 'emailjs') {
             if (!settings.mailServiceId || !settings.mailTemplateId || !settings.mailPublicKey) {
-                showToast('EmailJS configuration is missing in Admin panel', 'error');
-                return false;
+                showToast('EmailJS keys missing. Falling back to Simulation.', 'error');
+                showToast(`[Simulation] OTP for ${purpose}: ${otp}`, 'success');
+                return true;
             }
             
             showToast('Sending OTP email, please wait...', 'info');
@@ -538,13 +539,15 @@ const app = {
                 } else {
                     const text = await res.text();
                     console.error('EmailJS Error:', text);
-                    showToast('Email Error: ' + text.substring(0, 50), 'error');
-                    return false;
+                    showToast('Email Error. Falling back to Simulation.', 'error');
+                    setTimeout(() => showToast(`[Simulation] OTP: ${otp}`, 'success'), 1500);
+                    return true; // Still allow them to continue
                 }
             } catch (e) {
                 console.error(e);
-                showToast('Network error while sending email', 'error');
-                return false;
+                showToast('Network error. Falling back to Simulation.', 'error');
+                setTimeout(() => showToast(`[Simulation] OTP: ${otp}`, 'success'), 1500);
+                return true;
             }
         } else {
             // Simulation mode
@@ -576,10 +579,20 @@ const app = {
         this.tempOtp = Math.floor(100000 + Math.random() * 900000).toString();
         this.otpContext = 'register';
         
+        const btn = document.querySelector('#register-form button[type="submit"]');
+        const oldText = btn.textContent;
+        btn.textContent = "Sending OTP...";
+        btn.disabled = true;
+        
         const success = await this.dispatchEmail(email, this.tempOtp, 'Account Registration');
+        
+        btn.textContent = oldText;
+        btn.disabled = false;
+        
         if (success) {
             this.closeModal('auth-modal');
             document.getElementById('otp-modal').classList.add('active');
+            setTimeout(() => document.getElementById('otp-input').focus(), 100);
         }
     },
 
@@ -635,10 +648,20 @@ const app = {
         this.tempOtp = Math.floor(100000 + Math.random() * 900000).toString();
         this.otpContext = 'reset';
         
+        const btn = document.querySelector('#forgot-modal button[type="submit"]');
+        const oldText = btn.textContent;
+        btn.textContent = "Sending OTP...";
+        btn.disabled = true;
+        
         const success = await this.dispatchEmail(email, this.tempOtp, 'Password Reset');
+        
+        btn.textContent = oldText;
+        btn.disabled = false;
+        
         if (success) {
             this.closeModal('forgot-modal');
             document.getElementById('otp-modal').classList.add('active');
+            setTimeout(() => document.getElementById('otp-input').focus(), 100);
         }
     },
 
