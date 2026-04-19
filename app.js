@@ -323,17 +323,57 @@ const app = {
     },
 
     renderCheckout() {
+        if (!this.currentCustomer) {
+            return `
+                <div class="container mt-2 mb-2 text-center">
+                    <p style="margin-bottom: 1rem;">You need to log in to place an order.</p>
+                    <button class="btn btn-primary" onclick="app.toggleAuthModal(); app.switchAuthTab('login');">Login or Register</button>
+                </div>
+            `;
+        }
+        
         const cart = db.get('cart');
         if (cart.length === 0) {
             return `<div class="container mt-2 text-center"><p>Your cart is empty.</p><button class="btn btn-primary mt-1" onclick="app.navigate('shop')">Shop Now</button></div>`;
         }
 
+        const c = this.currentCustomer;
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         const settings = db.getSettings();
         
-        // Default delivery is inside dhaka
-        const deliveryFee = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryInside;
+        const deliveryFee = subtotal >= settings.freeDeliveryThreshold ? 0 : 
+                            (c.district === 'Dhaka' ? parseInt(settings.deliveryInside || 0) : parseInt(settings.deliveryOutside || 0));
         const total = subtotal + deliveryFee;
+
+        // Script to handle gift checkbox and delivery district toggles
+        const checkoutScript = `
+            function toggleGift(e) {
+                const checked = e.target.checked;
+                document.getElementById('gift-fields').style.display = checked ? 'block' : 'none';
+                
+                const paymentDropdown = document.getElementById('co-payment');
+                const codOption = paymentDropdown.querySelector('option[value="cod"]');
+                
+                if (checked) {
+                    codOption.disabled = true;
+                    if (paymentDropdown.value === 'cod') {
+                        paymentDropdown.value = 'bkash';
+                    }
+                    app.togglePaymentInfo();
+                    
+                    document.getElementById('gift-name').required = true;
+                    document.getElementById('gift-phone').required = true;
+                    document.getElementById('gift-address').required = true;
+                } else {
+                    codOption.disabled = false;
+                    document.getElementById('gift-name').required = false;
+                    document.getElementById('gift-phone').required = false;
+                    document.getElementById('gift-address').required = false;
+                }
+                
+                app.updateCheckoutTotal();
+            }
+        `;
 
         return `
             <div class="container mt-2 mb-2">
@@ -341,51 +381,35 @@ const app = {
                 <div style="display: flex; flex-wrap: wrap; gap: 2rem;">
                     <div style="flex: 2; min-width: 300px;">
                         <form id="checkout-form" onsubmit="app.placeOrder(event)">
-                            <h3>Shipping Information</h3>
+                            <h3>Billing Details</h3>
+                            <div style="background:var(--bg-light); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                                <p><strong>Name:</strong> ${c.name}</p>
+                                <p><strong>Phone:</strong> ${c.phone}</p>
+                                <p><strong>Email:</strong> ${c.email}</p>
+                                <p><strong>District:</strong> ${c.district === 'Dhaka' ? 'Inside Dhaka' : 'Outside Dhaka'}</p>
+                                <p><strong>Address:</strong> ${c.address}</p>
+                            </div>
+                            
                             <div class="form-group mt-1">
-                                <label>Full Name *</label>
-                                <input type="text" id="co-name" required>
+                                <label style="display:flex; align-items:center; gap:0.5rem; font-weight:bold;">
+                                    <input type="checkbox" id="co-gift" onchange="toggleGift(event)" style="width:auto; height:auto;"> 
+                                    This order is a gift for someone else
+                                </label>
                             </div>
-                            <div class="form-group">
-                                <label>Phone Number (01XXXXXXXXX) *</label>
-                                <input type="tel" id="co-phone" pattern="01[3-9][0-9]{8}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Email (Optional)</label>
-                                <input type="email" id="co-email">
-                            </div>
-                            <div class="form-group">
-                                <label>Address *</label>
-                                <textarea id="co-address" rows="3" required></textarea>
-                            </div>
-                            <div style="display:flex; gap:1rem;">
-                                <div class="form-group" style="flex:1;">
-                                    <label>District *</label>
-                                    <select id="co-district" required>
-                                        <option value="Dhaka">Dhaka</option>
-                                        <option value="Chattogram">Chattogram</option>
-                                        <option value="Sylhet">Sylhet</option>
-                                        <option value="Rajshahi">Rajshahi</option>
-                                        <option value="Khulna">Khulna</option>
-                                        <option value="Barishal">Barishal</option>
-                                        <option value="Rangpur">Rangpur</option>
-                                        <option value="Mymensingh">Mymensingh</option>
+                            
+                            <!-- Gift Fields -->
+                            <div id="gift-fields" style="display:none; padding: 1rem; background: var(--bg-light); border-radius: 8px; margin-top: 1rem;">
+                                <h4 style="margin-bottom:0.5rem;">Gift Recipient Details</h4>
+                                <div class="form-group mt-1"><label>Recipient Name *</label><input type="text" id="gift-name"></div>
+                                <div class="form-group"><label>Recipient Phone *</label><input type="text" id="gift-phone" pattern="01[3-9][0-9]{8}"></div>
+                                <div class="form-group"><label>Delivery Address *</label><textarea id="gift-address" rows="2"></textarea></div>
+                                <div class="form-group">
+                                    <label>Recipient District *</label>
+                                    <select id="gift-district" onchange="app.updateCheckoutTotal()">
+                                        <option value="Dhaka">Inside Dhaka</option>
+                                        <option value="Outside">Outside Dhaka</option>
                                     </select>
                                 </div>
-                                <div class="form-group" style="flex:1;">
-                                    <label>Postal Code</label>
-                                    <input type="text" id="co-postal">
-                                </div>
-                            </div>
-
-                            <h3 class="mt-2">Delivery Method</h3>
-                            <div class="form-group mt-1">
-                                <select id="co-delivery" onchange="app.updateCheckoutTotal()" required>
-                                    <option value="inside">Inside Dhaka (৳${settings.deliveryInside})</option>
-                                    <option value="outside">Outside Dhaka (৳${settings.deliveryOutside})</option>
-                                    <option value="express">Express Delivery (৳${settings.deliveryExpress})</option>
-                                </select>
-                                ${subtotal >= settings.freeDeliveryThreshold ? `<p style="color:var(--success); font-size:0.875rem; margin-top:0.5rem;">Qualifies for Free Delivery!</p>` : ''}
                             </div>
 
                             <h3 class="mt-2">Payment Method</h3>
@@ -411,7 +435,7 @@ const app = {
                         <div style="margin-top: 1.5rem;">
                             ${cart.map(item => `
                                 <div style="display:flex; justify-content:space-between; margin-bottom:1rem; font-size:0.875rem;">
-                                    <span>${item.qty}x ${item.name} (${item.size})</span>
+                                    <span>${item.qty}x ${item.name} (${item.size || 'Standard'})</span>
                                     <span>${formatMoney(item.price * item.qty)}</span>
                                 </div>
                             `).join('')}
@@ -423,7 +447,7 @@ const app = {
                             </div>
                             <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
                                 <span>Delivery Fee</span>
-                                <span id="summary-delivery">${subtotal >= settings.freeDeliveryThreshold ? 'Free' : formatMoney(deliveryFee)}</span>
+                                <span id="summary-delivery">${deliveryFee === 0 ? 'Free' : formatMoney(deliveryFee)}</span>
                             </div>
                             <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.25rem; margin-top:1rem; padding-top:1rem; border-top: 1px solid var(--border);">
                                 <span>Total</span>
@@ -432,6 +456,7 @@ const app = {
                         </div>
                     </div>
                 </div>
+                <script>${checkoutScript}</script>
             </div>
         `;
     },
@@ -472,7 +497,13 @@ const app = {
         const session = sessionStorage.getItem('fmf_customer');
         const userBtn = document.getElementById('user-icon-btn');
         if (session) {
-            this.currentCustomer = JSON.parse(session);
+            let sessionCustomer = JSON.parse(session);
+            const liveCustomer = db.get('customers').find(c => c.email === sessionCustomer.email);
+            if (liveCustomer && liveCustomer.blocked) {
+                this.logoutCustomer(true);
+                return;
+            }
+            this.currentCustomer = sessionCustomer;
             userBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--primary)" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
             userBtn.onclick = () => app.navigate('account');
         } else {
@@ -566,6 +597,9 @@ const app = {
             name: document.getElementById('reg-name').value,
             email: email,
             phone: document.getElementById('reg-phone').value,
+            address: document.getElementById('reg-address').value,
+            district: document.getElementById('reg-district').value,
+            postal: document.getElementById('reg-postal').value,
             password: document.getElementById('reg-password').value,
             created: new Date().toISOString()
         };
@@ -588,6 +622,10 @@ const app = {
         const customer = customers.find(c => c.email === email && c.password === pass);
         
         if (customer) {
+            if (customer.blocked) {
+                showToast('Your account has been blocked by an administrator.', 'error');
+                return;
+            }
             sessionStorage.setItem('fmf_customer', JSON.stringify(customer));
             this.checkAuth();
             this.toggleAuthModal();
@@ -599,11 +637,15 @@ const app = {
         }
     },
 
-    logoutCustomer() {
+    logoutCustomer(isBlocked = false) {
         sessionStorage.removeItem('fmf_customer');
         this.checkAuth();
         this.navigate('home');
-        showToast('Logged out successfully');
+        if (isBlocked === true) {
+            showToast('You have been logged out because your account is blocked.', 'error');
+        } else {
+            showToast('Logged out successfully');
+        }
     },
 
     showForgotPassword() {
@@ -681,39 +723,82 @@ const app = {
                     <h1>My Account</h1>
                     <button class="btn btn-outline" onclick="app.logoutCustomer()">Logout</button>
                 </div>
-                <div style="background:var(--bg-light); padding:2rem; border-radius:8px; margin-bottom:2rem;">
-                    <h3>Profile Information</h3>
-                    <p><strong>Name:</strong> ${this.currentCustomer.name}</p>
-                    <p><strong>Email:</strong> ${this.currentCustomer.email}</p>
-                    <p><strong>Phone:</strong> ${this.currentCustomer.phone}</p>
-                </div>
-                <h3>My Orders</h3>
-                ${orders.length === 0 ? '<p>You have no orders yet.</p>' : `
-                    <div class="admin-table-wrapper mt-1">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Date</th>
-                                    <th>Total</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${orders.slice().reverse().map(o => `
-                                    <tr>
-                                        <td>${o.id}</td>
-                                        <td>${new Date(o.date).toLocaleDateString()}</td>
-                                        <td>৳${o.total}</td>
-                                        <td><span class="badge-tag ${o.status==='Pending'?'badge-sale':'badge-new'}">${o.status}</span></td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                
+                <div style="display:flex; flex-wrap:wrap; gap:2rem;">
+                    <!-- LEFT COLUMN -->
+                    <div style="flex:1; min-width:300px;">
+                        <div style="background:var(--bg-light); padding:2rem; border-radius:8px; margin-bottom:2rem;">
+                            <h3>Profile Information</h3>
+                            <div class="mt-1" style="font-size: 0.9rem; line-height: 1.6;">
+                                <p><strong>Name:</strong> ${this.currentCustomer.name}</p>
+                                <p><strong>Email:</strong> ${this.currentCustomer.email}</p>
+                                <p><strong>Phone:</strong> ${this.currentCustomer.phone}</p>
+                                <p><strong>Address:</strong> ${this.currentCustomer.address || 'N/A'}</p>
+                                <p><strong>District:</strong> ${this.currentCustomer.district || 'N/A'}</p>
+                                <p><strong>Postal:</strong> ${this.currentCustomer.postal || 'N/A'}</p>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--bg-light); padding:2rem; border-radius:8px;">
+                            <h3>Change Password</h3>
+                            <form onsubmit="app.changePassword(event)" class="mt-1">
+                                <div class="form-group">
+                                    <label>New Password</label>
+                                    <input type="password" id="acc-new-pwd" required minlength="6">
+                                </div>
+                                <button type="submit" class="btn btn-primary" style="width:100%;">Update Password</button>
+                            </form>
+                        </div>
                     </div>
-                `}
+
+                    <!-- RIGHT COLUMN -->
+                    <div style="flex:2; min-width:300px;">
+                        <div style="background:var(--bg-light); padding:2rem; border-radius:8px;">
+                            <h3>My Orders</h3>
+                            ${orders.length === 0 ? '<p class="mt-1">You have no orders yet.</p>' : `
+                                <div class="admin-table-wrapper mt-1">
+                                    <table class="admin-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Order ID</th>
+                                                <th>Date</th>
+                                                <th>Items</th>
+                                                <th>Total</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${orders.slice().reverse().map(o => `
+                                                <tr>
+                                                    <td style="font-family:monospace; color:var(--accent);">${o.displayId || o.id}</td>
+                                                    <td>${new Date(o.date).toLocaleDateString()}</td>
+                                                    <td>${o.items.length}</td>
+                                                    <td>${formatMoney(o.total)}</td>
+                                                    <td><span class="badge-tag ${o.status==='Pending'?'badge-sale':'badge-new'}">${o.status}</span></td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
+    },
+
+    changePassword(e) {
+        e.preventDefault();
+        const pwd = document.getElementById('acc-new-pwd').value;
+        if(pwd.length < 6) return showToast('Password too short', 'error');
+        
+        db.update('customers', this.currentCustomer.id, { password: pwd });
+        this.currentCustomer.password = pwd;
+        sessionStorage.setItem('fmf_customer', JSON.stringify(this.currentCustomer));
+        
+        showToast('Password changed successfully');
+        e.target.reset();
     },
 
     toggleSearch() {
@@ -915,18 +1000,50 @@ const app = {
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         const settings = db.getSettings();
         
+        let district = 'Dhaka';
+        
+        if (document.getElementById('co-gift') && document.getElementById('co-gift').checked) {
+            district = document.getElementById('gift-district').value;
+        } else if (this.currentCustomer) {
+            district = this.currentCustomer.district;
+        }
+        
         let deliveryFee = 0;
         if (subtotal < settings.freeDeliveryThreshold) {
-            const method = document.getElementById('co-delivery').value;
-            if (method === 'inside') deliveryFee = parseInt(settings.deliveryInside);
-            if (method === 'outside') deliveryFee = parseInt(settings.deliveryOutside);
-            if (method === 'express') deliveryFee = parseInt(settings.deliveryExpress);
+            deliveryFee = district === 'Dhaka' ? parseInt(settings.deliveryInside || 0) : parseInt(settings.deliveryOutside || 0);
         }
 
         const total = subtotal + deliveryFee;
         
-        document.getElementById('summary-delivery').textContent = deliveryFee === 0 ? 'Free' : formatMoney(deliveryFee);
-        document.getElementById('summary-total').textContent = formatMoney(total);
+        const summaryDelivery = document.getElementById('summary-delivery');
+        const summaryTotal = document.getElementById('summary-total');
+        
+        if (summaryDelivery) summaryDelivery.textContent = deliveryFee === 0 ? 'Free' : formatMoney(deliveryFee);
+        if (summaryTotal) summaryTotal.textContent = formatMoney(total);
+    },
+
+    togglePaymentInfo() {
+        const method = document.getElementById('co-payment').value;
+        const infoDiv = document.getElementById('payment-instructions');
+        const settings = db.getSettings();
+
+        if (method === 'cod') {
+            infoDiv.classList.add('hidden');
+            if (document.getElementById('co-trxid')) document.getElementById('co-trxid').removeAttribute('required');
+        } else {
+            infoDiv.classList.remove('hidden');
+            let num = '';
+            if (method === 'bkash') num = settings.bkash || '01XXXXXXXXX';
+            if (method === 'nagad') num = settings.nagad || '01XXXXXXXXX';
+            if (method === 'rocket') num = settings.rocket || '01XXXXXXXXX';
+            
+            const totalHtml = document.getElementById('summary-total') ? document.getElementById('summary-total').textContent : '';
+
+            let text = '<p>Please send <strong>' + totalHtml + '</strong> to ' + method.toUpperCase() + ' Personal Number: <strong>' + num + '</strong>.</p>';
+            text += '<p style="margin-top:0.5rem;">Enter Transaction ID below:</p>';
+            text += '<input type="text" id="co-trxid" class="mt-1" style="width:100%; border:1px solid #ccc; padding:0.5rem;" required placeholder="Transaction ID">';
+            infoDiv.innerHTML = text;
+        }
     },
 
     renderSuccess(params = {}) {
@@ -945,38 +1062,60 @@ const app = {
         e.preventDefault();
         const cart = db.get('cart');
         if (cart.length === 0) return;
+        if (!this.currentCustomer) return;
 
         const settings = db.getSettings();
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         
+        let district = this.currentCustomer.district;
+        const isGift = document.getElementById('co-gift') && document.getElementById('co-gift').checked;
+        if (isGift) {
+            district = document.getElementById('gift-district').value;
+        }
+        
         let deliveryFee = 0;
-        const deliveryMethod = document.getElementById('co-delivery').value;
         if (subtotal < settings.freeDeliveryThreshold) {
-            if (deliveryMethod === 'inside') deliveryFee = parseInt(settings.deliveryInside);
-            if (deliveryMethod === 'outside') deliveryFee = parseInt(settings.deliveryOutside);
-            if (deliveryMethod === 'express') deliveryFee = parseInt(settings.deliveryExpress);
+            deliveryFee = district === 'Dhaka' ? parseInt(settings.deliveryInside || 0) : parseInt(settings.deliveryOutside || 0);
         }
 
         const rawOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+        
+        let orderCustomer = {
+            name: this.currentCustomer.name,
+            phone: this.currentCustomer.phone,
+            email: this.currentCustomer.email,
+            address: this.currentCustomer.address,
+            district: this.currentCustomer.district,
+            postal: this.currentCustomer.postal
+        };
+        
+        let giftDetails = null;
+        if (isGift) {
+            giftDetails = {
+                name: document.getElementById('gift-name').value,
+                phone: document.getElementById('gift-phone').value,
+                address: document.getElementById('gift-address').value,
+                district: document.getElementById('gift-district').value
+            };
+        }
+        
+        const paymentMethod = document.getElementById('co-payment').value;
+        const trxIdElement = document.getElementById('co-trxid');
+
         const order = {
             id: rawOrderId,
             displayId: rawOrderId,
             date: new Date().toISOString(),
-            customer: {
-                name: document.getElementById('co-name').value,
-                phone: document.getElementById('co-phone').value,
-                email: document.getElementById('co-email').value,
-                address: document.getElementById('co-address').value,
-                district: document.getElementById('co-district').value,
-                postal: document.getElementById('co-postal').value
-            },
+            customer: orderCustomer,
+            isGift: isGift,
+            giftDetails: giftDetails,
             items: cart,
             subtotal: subtotal,
             deliveryFee: deliveryFee,
             total: subtotal + deliveryFee,
-            deliveryMethod: deliveryMethod,
-            paymentMethod: document.getElementById('co-payment').value,
-            trxId: document.getElementById('co-trxid') ? document.getElementById('co-trxid').value : '',
+            deliveryMethod: isGift ? document.getElementById('gift-district').value : this.currentCustomer.district,
+            paymentMethod: paymentMethod,
+            trxId: trxIdElement ? trxIdElement.value : '',
             status: 'Pending'
         };
 

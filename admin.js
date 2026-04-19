@@ -15,10 +15,36 @@ const adminApp = {
             this.currentUser = JSON.parse(session);
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('admin-layout').classList.remove('hidden');
-            this.navigate('dashboard', document.querySelector('.admin-nav a'));
+            this.updateSidebar();
+            this.navigate('dashboard', document.querySelector('.admin-nav a[data-page="dashboard"]'));
         } else {
             document.getElementById('login-screen').classList.remove('hidden');
             document.getElementById('admin-layout').classList.add('hidden');
+        }
+    },
+
+    updateSidebar() {
+        const links = document.querySelectorAll('.admin-nav a[data-page]');
+        links.forEach(link => {
+            const page = link.getAttribute('data-page');
+            if (page === 'dashboard') {
+                link.parentElement.style.display = 'block';
+                return;
+            }
+            if (this.currentUser.role === 'master' || (this.currentUser.access && this.currentUser.access.includes(page))) {
+                link.parentElement.style.display = 'block';
+            } else {
+                link.parentElement.style.display = 'none';
+            }
+        });
+        
+        const staffLink = document.getElementById('nav-staff');
+        if (staffLink) {
+            if (this.currentUser.role === 'master') {
+                staffLink.style.display = 'block';
+            } else {
+                staffLink.style.display = 'none';
+            }
         }
     },
 
@@ -28,7 +54,9 @@ const adminApp = {
         const pass = document.getElementById('login-password').value;
 
         // Master Admin check
-        if (email === 'admin@fitmyfabrics.com' && pass === 'Sagor22777@') {
+        const settings = db.getSettings();
+        const masterPass = settings.masterPassword || 'Sagor22777@';
+        if (email === 'admin@fitmyfabrics.com' && pass === masterPass) {
             this.setSession({ email, role: 'master', name: 'Master Admin' });
             return;
         }
@@ -37,7 +65,7 @@ const adminApp = {
         const admins = db.get('admins');
         const user = admins.find(a => a.email === email && a.password === pass);
         if (user) {
-            this.setSession({ email: user.email, role: user.role, name: user.name });
+            this.setSession({ email: user.email, role: user.role, name: user.name, access: user.access || [] });
         } else {
             showToast('Invalid credentials', 'error');
         }
@@ -55,6 +83,16 @@ const adminApp = {
     },
 
     navigate(page, navElement) {
+        if (!this.currentUser) return;
+        
+        // Enforce RBAC (Role-Based Access Control)
+        if (page !== 'dashboard' && this.currentUser.role !== 'master') {
+            if (!this.currentUser.access || !this.currentUser.access.includes(page)) {
+                showToast('Access denied', 'error');
+                return;
+            }
+        }
+
         this.currentRoute = page;
         // Update active nav
         if (navElement) {
@@ -65,6 +103,9 @@ const adminApp = {
         const content = document.getElementById('admin-content');
         
         switch(page) {
+            case 'staff':
+                content.innerHTML = this.renderStaff();
+                break;
             case 'dashboard':
                 content.innerHTML = this.renderDashboard();
                 break;
@@ -445,57 +486,104 @@ const adminApp = {
         if (!order) return;
 
         const content = document.getElementById('order-detail-content');
-        content.innerHTML = `
-            <div style="display:flex; gap:2rem; flex-wrap:wrap;">
-                <div style="flex:1; min-width:250px;">
-                    <h3>Customer Info</h3>
-                    <p><strong>Name:</strong> ${order.customer.name}</p>
-                    <p><strong>Phone:</strong> ${order.customer.phone}</p>
-                    <p><strong>Email:</strong> ${order.customer.email || 'N/A'}</p>
-                    <p><strong>Address:</strong> ${order.customer.address}, ${order.customer.district}</p>
-                    
-                    <h3 class="mt-1">Payment Info</h3>
-                    <p><strong>Method:</strong> ${order.paymentMethod.toUpperCase()}</p>
-                    ${order.trxId ? `<p><strong>TrxID:</strong> ${order.trxId}</p>` : ''}
-                </div>
-                <div style="flex:1; min-width:250px;">
-                    <h3>Update Status</h3>
-                    <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-                        <select id="update-order-status" style="flex:1;">
-                            <option value="Pending" ${order.status==='Pending'?'selected':''}>Pending</option>
-                            <option value="Confirmed" ${order.status==='Confirmed'?'selected':''}>Confirmed</option>
-                            <option value="Processing" ${order.status==='Processing'?'selected':''}>Processing</option>
-                            <option value="Shipped" ${order.status==='Shipped'?'selected':''}>Shipped</option>
-                            <option value="Delivered" ${order.status==='Delivered'?'selected':''}>Delivered</option>
-                            <option value="Cancelled" ${order.status==='Cancelled'?'selected':''}>Cancelled</option>
-                        </select>
-                        <button class="btn btn-primary" onclick="adminApp.updateOrderStatus('${order.id}')">Save</button>
-                    </div>
-                    <button class="btn btn-outline mt-1" style="width:100%;" onclick="window.print()">Print Invoice</button>
-                </div>
-            </div>
+        
+        let customerHtml = `
+            <h3>Customer Info</h3>
+            <p><strong>Name:</strong> ${order.customer.name}</p>
+            <p><strong>Phone:</strong> ${order.customer.phone}</p>
+            <p><strong>Email:</strong> ${order.customer.email || 'N/A'}</p>
+            <p><strong>Address:</strong> ${order.customer.address}</p>
+            <p><strong>District:</strong> ${order.customer.district}</p>
+        `;
 
-            <h3 class="mt-2 mb-1">Items</h3>
-            <table class="admin-table">
-                <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
-                <tbody>
-                    ${order.items.map(item => `
-                        <tr>
-                            <td>${item.name} (${item.size}, <span style="display:inline-block;width:10px;height:10px;background:${item.color};border-radius:50%;"></span>)</td>
-                            <td>${item.qty}</td>
-                            <td>৳${item.price}</td>
-                            <td>৳${item.price * item.qty}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-            <div style="text-align:right; margin-top:1rem;">
-                <p>Subtotal: ৳${order.subtotal}</p>
-                <p>Delivery: ৳${order.deliveryFee}</p>
-                <h3 class="mt-1">Grand Total: ৳${order.total}</h3>
+        if (order.isGift && order.giftDetails) {
+            customerHtml += `
+                <h3 class="mt-1" style="color:var(--accent);">🎁 Gift Delivery Info</h3>
+                <p><strong>Recipient Name:</strong> ${order.giftDetails.name}</p>
+                <p><strong>Recipient Phone:</strong> ${order.giftDetails.phone}</p>
+                <p><strong>Recipient Address:</strong> ${order.giftDetails.address}</p>
+                <p><strong>Recipient District:</strong> ${order.giftDetails.district}</p>
+            `;
+        }
+
+        content.innerHTML = `
+            <div id="print-area">
+                <div style="display:flex; justify-content:space-between; border-bottom:2px solid #eee; padding-bottom:1rem; margin-bottom:1rem;">
+                    <div><h2>INVOICE</h2><p>Order ID: ${order.displayId || order.id}</p><p>Date: ${new Date(order.date).toLocaleDateString()}</p></div>
+                    <div style="text-align:right;"><h3>FIT MY FABRICS</h3><p>Status: <strong>${order.status}</strong></p></div>
+                </div>
+                <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:250px;">
+                        ${customerHtml}
+                        
+                        <h3 class="mt-1">Payment Info</h3>
+                        <p><strong>Method:</strong> ${order.paymentMethod.toUpperCase()}</p>
+                        ${order.trxId ? `<p><strong>TrxID:</strong> ${order.trxId}</p>` : ''}
+                    </div>
+                    <div style="flex:1; min-width:250px;" class="no-print">
+                        <h3>Update Status</h3>
+                        <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                            <select id="update-order-status" style="flex:1;">
+                                <option value="Pending" ${order.status==='Pending'?'selected':''}>Pending</option>
+                                <option value="Confirmed" ${order.status==='Confirmed'?'selected':''}>Confirmed</option>
+                                <option value="Processing" ${order.status==='Processing'?'selected':''}>Processing</option>
+                                <option value="Shipped" ${order.status==='Shipped'?'selected':''}>Shipped</option>
+                                <option value="Delivered" ${order.status==='Delivered'?'selected':''}>Delivered</option>
+                                <option value="Cancelled" ${order.status==='Cancelled'?'selected':''}>Cancelled</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="adminApp.updateOrderStatus('${order.id}')">Save</button>
+                        </div>
+                        <button class="btn btn-outline mt-1" style="width:100%;" onclick="adminApp.downloadInvoice('${order.id}')">Download PDF Invoice</button>
+                    </div>
+                </div>
+
+                <h3 class="mt-2 mb-1">Items</h3>
+                <table class="admin-table">
+                    <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+                    <tbody>
+                        ${order.items.map(item => `
+                            <tr>
+                                <td>${item.name} (${item.size || 'Standard'}, <span style="display:inline-block;width:10px;height:10px;background:${item.color || '#ccc'};border-radius:50%;"></span>)</td>
+                                <td>${item.qty}</td>
+                                <td>৳${item.price}</td>
+                                <td>৳${item.price * item.qty}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div style="text-align:right; margin-top:1rem;">
+                    <p>Subtotal: ৳${order.subtotal}</p>
+                    <p>Delivery: ৳${order.deliveryFee}</p>
+                    <h3 class="mt-1">Grand Total: ৳${order.total}</h3>
+                </div>
             </div>
         `;
         document.getElementById('order-modal').classList.add('active');
+    },
+
+    downloadInvoice(id) {
+        const order = db.getOne('orders', id);
+        if(!order) return;
+        
+        const printArea = document.getElementById('print-area');
+        const noPrintElements = printArea.querySelectorAll('.no-print');
+        
+        // Hide no-print elements
+        noPrintElements.forEach(el => el.style.display = 'none');
+        
+        const opt = {
+            margin:       10,
+            filename:     'Invoice_' + (order.displayId || order.id) + '.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        showToast('Generating PDF...');
+        html2pdf().set(opt).from(printArea).save().then(() => {
+            // Restore no-print elements
+            noPrintElements.forEach(el => el.style.display = '');
+        });
     },
 
     updateOrderStatus(id) {
@@ -522,22 +610,40 @@ const adminApp = {
                             <th>Email</th>
                             <th>Phone</th>
                             <th>Joined Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${customers.map(c => `
-                            <tr>
+                            <tr style="${c.blocked ? 'opacity: 0.6;' : ''}">
                                 <td>${c.name}</td>
                                 <td>${c.email}</td>
                                 <td>${c.phone}</td>
                                 <td>${new Date(c.created).toLocaleDateString()}</td>
+                                <td>
+                                    ${c.blocked ? '<span class="badge-tag badge-sale" style="background:var(--danger)">Blocked</span>' : '<span class="badge-tag badge-new">Active</span>'}
+                                </td>
+                                <td>
+                                    <button class="action-btn edit-btn" onclick="adminApp.toggleBlockCustomer('${c.id}', ${c.blocked ? 'false' : 'true'})">${c.blocked ? 'Unblock' : 'Block'}</button>
+                                    <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('customers', '${c.id}', 'adminApp.renderCustomers()')">Delete</button>
+                                </td>
                             </tr>
                         `).join('')}
-                        ${customers.length === 0 ? '<tr><td colspan="4" class="text-center">No customers yet</td></tr>' : ''}
+                        ${customers.length === 0 ? '<tr><td colspan="6" class="text-center">No customers yet</td></tr>' : ''}
                     </tbody>
                 </table>
             </div>
         `;
+    },
+
+    toggleBlockCustomer(id, isBlocked) {
+        db.update('customers', id, { blocked: isBlocked });
+        showToast(isBlocked ? 'Customer blocked' : 'Customer unblocked');
+        
+        // Note: For blocking to be effective, app.js needs to check customer.blocked
+        
+        document.getElementById('admin-content').innerHTML = this.renderCustomers();
     },
 
     // --- Appearance ---
@@ -798,6 +904,138 @@ const adminApp = {
     removeAppImage(type, previewId) {
         this.tempAppearance[type] = '';
         document.getElementById(previewId).innerHTML = '';
+    },
+
+    // --- Staff Management ---
+    renderStaff() {
+        const admins = db.get('admins');
+        const settings = db.getSettings();
+        
+        return `
+            <div class="admin-header">
+                <h2>Staff & Admins</h2>
+                <button class="btn btn-primary" onclick="adminApp.openStaffModal()">Add New Staff</button>
+            </div>
+            
+            <div class="card mt-2">
+                <h3>Master Admin Password</h3>
+                <div class="form-group mt-1">
+                    <input type="password" id="master-pwd" placeholder="Enter new master password" value="${settings.masterPassword || 'Sagor22777@'}">
+                </div>
+                <button class="btn" style="background:var(--accent);" onclick="adminApp.saveMasterPassword()">Update Master Password</button>
+            </div>
+
+            <div class="card mt-2">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Access Areas</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${admins.map(a => `
+                            <tr>
+                                <td>${a.name}</td>
+                                <td>${a.email}</td>
+                                <td><span class="badge-tag badge-sale">${a.role}</span></td>
+                                <td style="font-size: 0.8rem; color:var(--text-light); max-width: 200px;">
+                                    ${(a.access || []).join(', ')}
+                                </td>
+                                <td>
+                                    <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('admins', '${a.id}', 'adminApp.renderStaff()')">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="staff-modal" class="modal-overlay">
+                <div class="modal-content" style="max-width: 500px;">
+                    <button class="modal-close" onclick="adminApp.closeModal('staff-modal')">&times;</button>
+                    <h2>Add New Staff</h2>
+                    <form onsubmit="adminApp.saveStaff(event)">
+                        <div class="form-group mt-1">
+                            <label>Name</label>
+                            <input type="text" id="staff-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email (Username)</label>
+                            <input type="email" id="staff-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="text" id="staff-pwd" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Access Areas</label>
+                            <div style="display:flex; flex-wrap:wrap; gap: 1rem;" class="mt-1">
+                                <label><input type="checkbox" class="cb-access" value="products"> Products</label>
+                                <label><input type="checkbox" class="cb-access" value="categories"> Categories</label>
+                                <label><input type="checkbox" class="cb-access" value="orders"> Orders</label>
+                                <label><input type="checkbox" class="cb-access" value="customers"> Customers</label>
+                                <label><input type="checkbox" class="cb-access" value="appearance"> Appearance</label>
+                                <label><input type="checkbox" class="cb-access" value="settings"> Settings</label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2">Save Staff</button>
+                    </form>
+                </div>
+            </div>
+        `;
+    },
+
+    saveMasterPassword() {
+        const pwd = document.getElementById('master-pwd').value;
+        if(pwd.length < 6) {
+            showToast('Password must be at least 6 characters', 'error');
+            return;
+        }
+        const s = db.getSettings();
+        s.masterPassword = pwd;
+        db.setSettings(s);
+        showToast('Master password updated!');
+    },
+
+    openStaffModal() {
+        document.getElementById('staff-name').value = '';
+        document.getElementById('staff-email').value = '';
+        document.getElementById('staff-pwd').value = '';
+        document.querySelectorAll('.cb-access').forEach(cb => cb.checked = false);
+        document.getElementById('staff-modal').classList.add('active');
+    },
+
+    saveStaff(e) {
+        e.preventDefault();
+        const access = [];
+        document.querySelectorAll('.cb-access:checked').forEach(cb => access.push(cb.value));
+        
+        if (access.length === 0) {
+            showToast('Please select at least one access area', 'error');
+            return;
+        }
+
+        const admin = {
+            name: document.getElementById('staff-name').value,
+            email: document.getElementById('staff-email').value,
+            password: document.getElementById('staff-pwd').value,
+            role: 'admin',
+            access: access
+        };
+        
+        if (db.get('admins').find(a => a.email === admin.email)) {
+             showToast('Email already in use', 'error');
+             return;
+        }
+
+        db.add('admins', admin);
+        showToast('Staff added successfully!');
+        this.closeModal('staff-modal');
+        document.getElementById('admin-content').innerHTML = this.renderStaff();
     }
 };
 

@@ -32,13 +32,14 @@
         <aside class="admin-sidebar">
             <div class="admin-logo">FIT MY FABRICS</div>
             <ul class="admin-nav">
-                <li><a href="#" class="active" onclick="adminApp.navigate('dashboard', this)">Dashboard</a></li>
-                <li><a href="#" onclick="adminApp.navigate('products', this)">Products</a></li>
-                <li><a href="#" onclick="adminApp.navigate('categories', this)">Categories</a></li>
-                <li><a href="#" onclick="adminApp.navigate('orders', this)">Orders</a></li>
-                <li><a href="#" onclick="adminApp.navigate('customers', this)">Customers</a></li>
-                <li><a href="#" onclick="adminApp.navigate('appearance', this)">Appearance</a></li>
-                <li><a href="#" onclick="adminApp.navigate('settings', this)">Settings</a></li>
+                <li><a href="#" class="active" data-page="dashboard" onclick="adminApp.navigate('dashboard', this)">Dashboard</a></li>
+                <li><a href="#" data-page="products" onclick="adminApp.navigate('products', this)">Products</a></li>
+                <li><a href="#" data-page="categories" onclick="adminApp.navigate('categories', this)">Categories</a></li>
+                <li><a href="#" data-page="orders" onclick="adminApp.navigate('orders', this)">Orders</a></li>
+                <li><a href="#" data-page="customers" onclick="adminApp.navigate('customers', this)">Customers</a></li>
+                <li><a href="#" data-page="appearance" onclick="adminApp.navigate('appearance', this)">Appearance</a></li>
+                <li><a href="#" data-page="settings" onclick="adminApp.navigate('settings', this)">Settings</a></li>
+                <li id="nav-staff"><a href="#" data-page="staff" onclick="adminApp.navigate('staff', this)">Staff & Admins</a></li>
                 <li><a href="#" onclick="adminApp.logout()" style="color: #fca5a5;">Logout</a></li>
             </ul>
         </aside>
@@ -161,6 +162,7 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script type="module" src="/data.js"></script>
     <script type="module" src="/admin.js"></script>
 </body>
