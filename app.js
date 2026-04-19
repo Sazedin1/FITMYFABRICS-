@@ -512,8 +512,10 @@ const app = {
         const settings = db.getSettings();
         if (settings.mailProvider === 'emailjs') {
             if (!settings.mailServiceId || !settings.mailTemplateId || !settings.mailPublicKey) {
-                showToast('EmailJS keys missing. Falling back to Simulation.', 'error');
-                showToast(`[Simulation] OTP for ${purpose}: ${otp}`, 'success');
+                showToast('Email system not configured! Using Demo Demo Mode.', 'error');
+                setTimeout(() => {
+                    alert("Admin Action Required:\nTo send genuine OTPs, you MUST configure your EmailJS API keys in Admin Panel -> Settings. Until then, here is your Demo OTP: " + otp);
+                }, 500);
                 return true;
             }
             
