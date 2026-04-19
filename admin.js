@@ -97,6 +97,12 @@ const adminApp = {
     // --- Dashboard ---
 
     renderDashboard() {
+        if (window.isAppInitialized && !window.isAppInitialized()) {
+            return `<div style="text-align:center; padding: 3rem;">
+                        <h3>Syncing data from database... Please wait...</h3>
+                    </div>`;
+        }
+        
         const products = db.get('products');
         const orders = db.get('orders');
         
@@ -184,6 +190,12 @@ const adminApp = {
     // --- Products ---
 
     renderProducts() {
+        if (window.isAppInitialized && !window.isAppInitialized()) {
+            return `<div style="text-align:center; padding: 3rem;">
+                        <h3>Syncing data from database... Please wait...</h3>
+                    </div>`;
+        }
+
         const products = db.get('products');
         const categories = db.get('categories');
         
@@ -298,6 +310,12 @@ const adminApp = {
     // --- Categories ---
 
     renderCategories() {
+        if (window.isAppInitialized && !window.isAppInitialized()) {
+            return `<div style="text-align:center; padding: 3rem;">
+                        <h3>Syncing data from database... Please wait...</h3>
+                    </div>`;
+        }
+
         const categories = db.get('categories');
         return `
             <div class="admin-header">

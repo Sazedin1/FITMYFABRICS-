@@ -112,7 +112,9 @@ const db = {
     getOne: (table, id) => db.get(table).find(item => item.id === id),
     add: (table, item) => {
         const data = db.get(table);
-        item.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+        if (!item.id) {
+            item.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+        }
         data.push(item);
         localStorage.setItem(DB_PREFIX + table, JSON.stringify(data));
         setDoc(doc(firestore, table, item.id), item);
@@ -162,7 +164,7 @@ onSnapshot(doc(firestore, 'system', 'settings'), (docSnap) => {
     checkIfAppReady();
 });
 
-let isAppInitialized = false;
+export let isAppInitialized = false;
 function checkIfAppReady() {
     // Wait until all 7 collections + 1 settings document are synced at least once
     if (syncReadyCount >= 8 && !isAppInitialized) {
@@ -243,6 +245,7 @@ window.formatMoney = function(amount) {
 window.db = db;
 window.showToast = showToast;
 window.compressImage = compressImage;
+window.isAppInitialized = () => isAppInitialized;
 
 // Seed Firebase if it's completely empty
 async function seedFirebase() {

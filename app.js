@@ -55,6 +55,9 @@ const app = {
             case 'account':
                 content.innerHTML = this.renderAccount();
                 break;
+            case 'success':
+                content.innerHTML = this.renderSuccess(params);
+                break;
             default:
                 content.innerHTML = this.renderHome();
         }
@@ -867,6 +870,18 @@ const app = {
         document.getElementById('summary-total').textContent = formatMoney(total);
     },
 
+    renderSuccess(params = {}) {
+        return `
+            <div class="container mt-2 mb-2 text-center">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" style="margin:0 auto 1rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                <h1>Order Placed Successfully!</h1>
+                ${params.orderId ? `<p class="mt-1">Your order ID is <strong>${params.orderId}</strong></p>` : `<p class="mt-1">Thank you for your order.</p>`}
+                <p>We will contact you shortly to confirm your order.</p>
+                <button class="btn btn-accent mt-2" onclick="app.navigate('home')">Continue Shopping</button>
+            </div>
+        `;
+    },
+
     placeOrder(e) {
         e.preventDefault();
         const cart = db.get('cart');
@@ -883,8 +898,10 @@ const app = {
             if (deliveryMethod === 'express') deliveryFee = parseInt(settings.deliveryExpress);
         }
 
+        const rawOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
         const order = {
-            id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+            id: rawOrderId,
+            displayId: rawOrderId,
             date: new Date().toISOString(),
             customer: {
                 name: document.getElementById('co-name').value,
@@ -908,17 +925,7 @@ const app = {
         db.set('cart', []); // clear cart
         this.updateCartCount();
         
-        const content = document.getElementById('app-content');
-        content.innerHTML = `
-            <div class="container mt-2 mb-2 text-center">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" style="margin:0 auto 1rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                <h1>Order Placed Successfully!</h1>
-                <p class="mt-1">Your order ID is <strong>${order.id}</strong></p>
-                <p>We will contact you shortly to confirm your order.</p>
-                <button class="btn btn-accent mt-2" onclick="app.navigate('home')">Continue Shopping</button>
-            </div>
-        `;
-        window.scrollTo(0, 0);
+        this.navigate('success', { orderId: order.id });
     },
 
     trackOrder() {
