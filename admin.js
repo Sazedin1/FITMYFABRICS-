@@ -605,8 +605,12 @@ const adminApp = {
 
     async dispatchEmail(email, message, purpose) {
         const settings = db.getSettings();
-        if (!settings.mailServiceId || !settings.mailTemplateId || !settings.mailPublicKey) {
-            console.log('EmailJS credentials missing. Check settings.');
+        const serviceId = (settings.mailServiceId || '').trim();
+        const templateId = (settings.mailTemplateId || '').trim();
+        const publicKey = (settings.mailPublicKey || '').trim();
+
+        if (settings.mailProvider !== 'emailjs' || !serviceId || !templateId || !publicKey) {
+            console.log('EmailJS credentials missing or disabled. Check settings.');
             return false;
         }
 
@@ -615,9 +619,9 @@ const adminApp = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    service_id: settings.mailServiceId,
-                    template_id: settings.mailTemplateId,
-                    user_id: settings.mailPublicKey,
+                    service_id: serviceId,
+                    template_id: templateId,
+                    user_id: publicKey,
                     template_params: {
                         to_email: email,
                         otp_code: message, // Assuming template uses {{otp_code}}
@@ -630,11 +634,14 @@ const adminApp = {
                 console.log('Email sent successfully!');
                 return true;
             } else {
-                console.error('EmailJS error:', await res.text());
+                const text = await res.text();
+                console.error('EmailJS error:', text);
+                alert("EmailJS Failed: " + text + "\n\nPlease check EmailJS settings in Admin Panel -> Settings.");
                 return false;
             }
         } catch (error) {
             console.error('Email dispatch failed:', error);
+            alert("Network error while calling EmailJS.");
             return false;
         }
     },

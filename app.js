@@ -511,8 +511,12 @@ const app = {
     async dispatchEmail(email, otp, purpose) {
         const settings = db.getSettings();
         if (settings.mailProvider === 'emailjs') {
-            if (!settings.mailServiceId || !settings.mailTemplateId || !settings.mailPublicKey) {
-                showToast('Email system not configured! Using Demo Demo Mode.', 'error');
+            const serviceId = (settings.mailServiceId || '').trim();
+            const templateId = (settings.mailTemplateId || '').trim();
+            const publicKey = (settings.mailPublicKey || '').trim();
+
+            if (!serviceId || !templateId || !publicKey) {
+                showToast('Email system not configured! Using Demo Mode.', 'error');
                 setTimeout(() => {
                     alert("Admin Action Required:\nTo send genuine OTPs, you MUST configure your EmailJS API keys in Admin Panel -> Settings. Until then, here is your Demo OTP: " + otp);
                 }, 500);
@@ -525,9 +529,9 @@ const app = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        service_id: settings.mailServiceId,
-                        template_id: settings.mailTemplateId,
-                        user_id: settings.mailPublicKey,
+                        service_id: serviceId,
+                        template_id: templateId,
+                        user_id: publicKey,
                         template_params: {
                             to_email: email,
                             otp_code: otp,
@@ -541,14 +545,12 @@ const app = {
                 } else {
                     const text = await res.text();
                     console.error('EmailJS Error:', text);
-                    showToast('Email Error. Falling back to Simulation.', 'error');
-                    setTimeout(() => showToast(`[Simulation] OTP: ${otp}`, 'success'), 1500);
+                    alert("EmailJS Failed: " + text + "\n\nPlease check your EmailJS settings in the Admin Panel.\nFalling back to Simulation mode. Your Demo OTP is: " + otp);
                     return true; // Still allow them to continue
                 }
             } catch (e) {
                 console.error(e);
-                showToast('Network error. Falling back to Simulation.', 'error');
-                setTimeout(() => showToast(`[Simulation] OTP: ${otp}`, 'success'), 1500);
+                alert("Network error while calling EmailJS.\nFalling back to Simulation mode. Your Demo OTP is: " + otp);
                 return true;
             }
         } else {
