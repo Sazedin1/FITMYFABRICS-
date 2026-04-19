@@ -508,7 +508,52 @@ const app = {
         }
     },
 
-    registerCustomer(e) {
+    async dispatchEmail(email, otp, purpose) {
+        const settings = db.getSettings();
+        if (settings.mailProvider === 'emailjs') {
+            if (!settings.mailServiceId || !settings.mailTemplateId || !settings.mailPublicKey) {
+                showToast('EmailJS configuration is missing in Admin panel', 'error');
+                return false;
+            }
+            
+            showToast('Sending OTP email, please wait...', 'info');
+            try {
+                const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        service_id: settings.mailServiceId,
+                        template_id: settings.mailTemplateId,
+                        user_id: settings.mailPublicKey,
+                        template_params: {
+                            to_email: email,
+                            otp_code: otp,
+                            purpose: purpose
+                        }
+                    })
+                });
+                if (res.ok) {
+                    showToast('OTP sent to your email successfully!');
+                    return true;
+                } else {
+                    const text = await res.text();
+                    console.error('EmailJS Error:', text);
+                    showToast('Email Error: ' + text.substring(0, 50), 'error');
+                    return false;
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Network error while sending email', 'error');
+                return false;
+            }
+        } else {
+            // Simulation mode
+            showToast(`[Simulation] Your OTP for ${purpose} is: ${otp}`, 'success');
+            return true;
+        }
+    },
+
+    async registerCustomer(e) {
         e.preventDefault();
         const email = document.getElementById('reg-email').value;
         const customers = db.get('customers');
@@ -516,18 +561,23 @@ const app = {
             showToast('Email already registered', 'error');
             return;
         }
-        const newCustomer = {
+        
+        this.pendingRegData = {
             name: document.getElementById('reg-name').value,
             email: email,
             phone: document.getElementById('reg-phone').value,
             password: document.getElementById('reg-password').value,
             created: new Date().toISOString()
         };
-        db.add('customers', newCustomer);
-        showToast('Registration successful! Please login.');
-        this.switchAuthTab('login');
-        document.getElementById('login-email').value = email;
-        document.getElementById('register-form').reset();
+        
+        this.tempOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        this.otpContext = 'register';
+        
+        const success = await this.dispatchEmail(email, this.tempOtp, 'Account Registration');
+        if (success) {
+            this.closeModal('auth-modal');
+            document.getElementById('otp-modal').classList.add('active');
+        }
     },
 
     loginCustomer(e) {
@@ -561,7 +611,7 @@ const app = {
         document.getElementById('forgot-modal').classList.add('active');
     },
 
-    sendOtp(e) {
+    async sendOtp(e) {
         e.preventDefault();
         const email = document.getElementById('forgot-email').value;
         const customers = db.get('customers');
@@ -572,17 +622,13 @@ const app = {
         
         this.tempResetEmail = email;
         this.tempOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        this.otpContext = 'reset';
         
-        const settings = db.getSettings();
-        if (settings.mailProvider === 'emailjs' && settings.mailServiceId) {
-            console.log(`EmailJS configured. Sending OTP ${this.tempOtp} to ${email}`);
-            showToast(`[EmailJS] OTP sent to ${email}`);
-        } else {
-            showToast(`[Simulation] OTP is: ${this.tempOtp}`, 'success');
+        const success = await this.dispatchEmail(email, this.tempOtp, 'Password Reset');
+        if (success) {
+            this.closeModal('forgot-modal');
+            document.getElementById('otp-modal').classList.add('active');
         }
-        
-        this.closeModal('forgot-modal');
-        document.getElementById('otp-modal').classList.add('active');
     },
 
     verifyOtp(e) {
@@ -590,7 +636,20 @@ const app = {
         const inputOtp = document.getElementById('otp-input').value;
         if (inputOtp === this.tempOtp) {
             this.closeModal('otp-modal');
-            document.getElementById('reset-modal').classList.add('active');
+            document.getElementById('otp-input').value = '';
+            
+            if (this.otpContext === 'register') {
+                db.add('customers', this.pendingRegData);
+                showToast('Registration successful! Please login.');
+                
+                document.getElementById('auth-modal').classList.add('active');
+                this.switchAuthTab('login');
+                document.getElementById('login-email').value = this.pendingRegData.email;
+                document.getElementById('register-form').reset();
+                this.pendingRegData = null;
+            } else if (this.otpContext === 'reset') {
+                document.getElementById('reset-modal').classList.add('active');
+            }
         } else {
             showToast('Invalid OTP', 'error');
         }
