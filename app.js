@@ -508,22 +508,45 @@ const app = {
         }
     },
 
-    async dispatchEmail(email, otp, purpose) {
+    async dispatchEmail(email, messageOrData, purpose, isOrderUpdate = false) {
         const settings = db.getSettings();
         if (settings.mailProvider === 'emailjs') {
             const serviceId = (settings.mailServiceId || '').trim();
-            const templateId = (settings.mailTemplateId || '').trim();
+            const otpTemplateId = (settings.mailTemplateId || '').trim();
+            const orderTemplateId = (settings.mailOrderTemplateId || '').trim();
             const publicKey = (settings.mailPublicKey || '').trim();
+
+            const templateId = isOrderUpdate ? (orderTemplateId || otpTemplateId) : otpTemplateId;
 
             if (!serviceId || !templateId || !publicKey) {
                 showToast('Email system not configured! Using Demo Mode.', 'error');
                 setTimeout(() => {
-                    alert("Admin Action Required:\nTo send genuine OTPs, you MUST configure your EmailJS API keys in Admin Panel -> Settings. Until then, here is your Demo OTP: " + otp);
+                    alert("Admin Action Required:\nTo send genuine emails, you MUST configure EmailJS API keys in Admin Panel -> Settings.");
                 }, 500);
                 return true;
             }
             
-            showToast('Sending OTP email, please wait...', 'info');
+            showToast(isOrderUpdate ? 'Sending order email...' : 'Sending OTP email, please wait...', 'info');
+            
+            let params = {
+                to_email: email,
+                purpose: purpose,
+                otp_code: isOrderUpdate ? '' : messageOrData,
+                message: isOrderUpdate && typeof messageOrData === 'string' ? messageOrData : ''
+            };
+
+            if (isOrderUpdate && typeof messageOrData === 'object') {
+                const o = messageOrData.order;
+                params.status_alert = messageOrData.statusAlert;
+                params.order_id = o.displayId;
+                params.customer_name = o.customer.name;
+                params.customer_address = o.customer.address;
+                params.subtotal = o.subtotal || 0;
+                params.delivery_fee = o.deliveryFee || 0;
+                params.total_amount = o.total;
+                params.items_html = o.items.map(i => `${i.qty}x ${i.name} - BDT ${i.price * i.qty}`).join('<br>');
+            }
+
             try {
                 const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
                     method: 'POST',
@@ -532,30 +555,26 @@ const app = {
                         service_id: serviceId,
                         template_id: templateId,
                         user_id: publicKey,
-                        template_params: {
-                            to_email: email,
-                            otp_code: otp,
-                            purpose: purpose
-                        }
+                        template_params: params
                     })
                 });
                 if (res.ok) {
-                    showToast('OTP sent to your email successfully!');
+                    showToast(isOrderUpdate ? 'Order email sent!' : 'OTP sent to your email successfully!');
                     return true;
                 } else {
                     const text = await res.text();
                     console.error('EmailJS Error:', text);
-                    alert("EmailJS Failed: " + text + "\n\nPlease check your EmailJS settings in the Admin Panel.\nFalling back to Simulation mode. Your Demo OTP is: " + otp);
+                    alert("EmailJS Failed: " + text + "\n\nPlease check your EmailJS settings in the Admin Panel.");
                     return true; // Still allow them to continue
                 }
             } catch (e) {
                 console.error(e);
-                alert("Network error while calling EmailJS.\nFalling back to Simulation mode. Your Demo OTP is: " + otp);
+                alert("Network error while calling EmailJS.");
                 return true;
             }
         } else {
             // Simulation mode
-            showToast(`[Simulation] Your OTP for ${purpose} is: ${otp}`, 'success');
+            showToast(`[Simulation] ${purpose} email dispatched`, 'success');
             return true;
         }
     },
@@ -1154,7 +1173,10 @@ const app = {
             
             // Send Email asynchronously (don't force wait if it fails we still show success page)
             if (order.customer.email) {
-                this.dispatchEmail(order.customer.email, emailMsg, "Order Confirmation: " + order.displayId);
+                this.dispatchEmail(order.customer.email, {
+                    order: order,
+                    statusAlert: "We have received your order and are processing it."
+                }, "Order Confirmation: " + order.displayId, true);
             }
             
             this.navigate('success', { orderId: order.id });

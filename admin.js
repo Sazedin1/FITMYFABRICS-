@@ -594,8 +594,11 @@ const adminApp = {
         db.update('orders', id, { status });
         
         if (order.customer && order.customer.email && order.status !== status) {
-            const msg = `Your order ${order.displayId} status has been updated to: ${status}.`;
-            await this.dispatchEmail(order.customer.email, msg, "Order Status Update: " + order.displayId);
+            const alertMsg = `Your order status has been updated to: ${status}.`;
+            await this.dispatchEmail(order.customer.email, {
+                order: order,
+                statusAlert: alertMsg
+            }, "Order Status Update: " + order.displayId, true);
         }
         
         showToast('Order status updated');
@@ -603,15 +606,37 @@ const adminApp = {
         this.navigate('orders');
     },
 
-    async dispatchEmail(email, message, purpose) {
+    async dispatchEmail(email, messageOrData, purpose, isOrderUpdate = true) {
         const settings = db.getSettings();
         const serviceId = (settings.mailServiceId || '').trim();
-        const templateId = (settings.mailTemplateId || '').trim();
+        const otpTemplateId = (settings.mailTemplateId || '').trim();
+        const orderTemplateId = (settings.mailOrderTemplateId || '').trim();
         const publicKey = (settings.mailPublicKey || '').trim();
+
+        const templateId = isOrderUpdate ? (orderTemplateId || otpTemplateId) : otpTemplateId;
 
         if (settings.mailProvider !== 'emailjs' || !serviceId || !templateId || !publicKey) {
             console.log('EmailJS credentials missing or disabled. Check settings.');
             return false;
+        }
+
+        let params = {
+            to_email: email,
+            purpose: purpose,
+            otp_code: isOrderUpdate ? '' : messageOrData,
+            message: isOrderUpdate && typeof messageOrData === 'string' ? messageOrData : ''
+        };
+
+        if (isOrderUpdate && typeof messageOrData === 'object') {
+            const o = messageOrData.order;
+            params.status_alert = messageOrData.statusAlert;
+            params.order_id = o.displayId;
+            params.customer_name = o.customer.name;
+            params.customer_address = o.customer.address;
+            params.subtotal = o.subtotal || 0;
+            params.delivery_fee = o.deliveryFee || 0;
+            params.total_amount = o.total;
+            params.items_html = o.items.map(i => `${i.qty}x ${i.name} - BDT ${i.price * i.qty}`).join('<br>');
         }
 
         try {
@@ -622,11 +647,7 @@ const adminApp = {
                     service_id: serviceId,
                     template_id: templateId,
                     user_id: publicKey,
-                    template_params: {
-                        to_email: email,
-                        otp_code: message, // Assuming template uses {{otp_code}}
-                        purpose: purpose
-                    }
+                    template_params: params
                 })
             });
 
@@ -849,7 +870,8 @@ const adminApp = {
                             </select>
                         </div>
                         <div class="form-group" style="flex:1;"><label>Service ID</label><input type="text" id="s-mail-service" value="${s.mailServiceId || ''}"></div>
-                        <div class="form-group" style="flex:1;"><label>Template ID</label><input type="text" id="s-mail-template" value="${s.mailTemplateId || ''}"></div>
+                        <div class="form-group" style="flex:1;"><label>OTP Template ID</label><input type="text" id="s-mail-template" value="${s.mailTemplateId || ''}"></div>
+                        <div class="form-group" style="flex:1;"><label>Order Template ID</label><input type="text" id="s-mail-order-template" value="${s.mailOrderTemplateId || ''}" placeholder="Optional"></div>
                         <div class="form-group" style="flex:1;"><label>Public Key</label><input type="text" id="s-mail-public" value="${s.mailPublicKey || ''}"></div>
                     </div>
 
@@ -878,6 +900,7 @@ const adminApp = {
             mailProvider: document.getElementById('s-mail-provider').value,
             mailServiceId: document.getElementById('s-mail-service').value,
             mailTemplateId: document.getElementById('s-mail-template').value,
+            mailOrderTemplateId: document.getElementById('s-mail-order-template').value,
             mailPublicKey: document.getElementById('s-mail-public').value,
             maintenanceMode: document.getElementById('s-maintenance').checked
         };
