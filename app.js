@@ -6,6 +6,7 @@ const app = {
     currentCustomer: null,
     tempResetEmail: null,
     tempOtp: null,
+    appliedPromo: null,
     
     init() {
         const s = db.getSettings();
@@ -411,6 +412,15 @@ const app = {
                             `).join('')}
                         </div>
                         <div style="border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1rem;">
+                            <!-- Promo Code Section -->
+                            <div style="display:flex; gap: 0.5rem; margin-bottom: 1rem;">
+                                <input type="text" id="promo-input" placeholder="Promo/Coupon Code" style="flex:1; padding:0.5rem; text-transform:uppercase;" ${app.appliedPromo ? 'disabled value="'+app.appliedPromo.code+'"' : ''}>
+                                ${app.appliedPromo 
+                                    ? `<button class="btn btn-outline" onclick="app.removePromo()" style="padding:0.5rem 1rem; border-color:var(--danger); color:var(--danger);">Remove</button>`
+                                    : `<button class="btn btn-primary" onclick="app.applyPromo()" style="padding:0.5rem 1rem;">Apply</button>`
+                                }
+                            </div>
+                            
                             <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
                                 <span>Subtotal</span>
                                 <span>${formatMoney(subtotal)}</span>
@@ -419,9 +429,15 @@ const app = {
                                 <span>Delivery Fee</span>
                                 <span id="summary-delivery">${deliveryFee === 0 ? 'Free' : formatMoney(deliveryFee)}</span>
                             </div>
+                            ${app.appliedPromo ? `
+                            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; color: #458500;">
+                                <span>Discount (${app.appliedPromo.code})</span>
+                                <span id="summary-discount">- BDT ${app.appliedPromo.amount}</span>
+                            </div>
+                            ` : '<div id="summary-discount-row" style="display:none; justify-content:space-between; margin-bottom:0.5rem; color: #458500;"><span>Discount</span><span id="summary-discount"></span></div>'}
                             <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.25rem; margin-top:1rem; padding-top:1rem; border-top: 1px solid var(--border);">
                                 <span>Total</span>
-                                <span id="summary-total">${formatMoney(total)}</span>
+                                <span id="summary-total">${formatMoney(total - (app.appliedPromo ? app.appliedPromo.amount : 0))}</span>
                             </div>
                         </div>
                     </div>
@@ -543,6 +559,11 @@ const app = {
                 params.customer_address = o.customer.address;
                 params.subtotal = o.subtotal || 0;
                 params.delivery_fee = o.deliveryFee || 0;
+                params.discount_html = (o.discount && o.discount > 0) ? `
+        <tr>
+          <td style="padding-bottom: 5px; color: #d32f2f;">Discount (${o.promoCode}):</td>
+          <td style="padding-bottom: 5px; color: #d32f2f;">- BDT ${o.discount}</td>
+        </tr>` : '';
                 params.total_amount = o.total;
                 params.items_html = o.items.map(i => `${i.qty}x ${i.name} - BDT ${i.price * i.qty}`).join('<br>');
             }
@@ -1055,13 +1076,66 @@ const app = {
             deliveryFee = district === 'Dhaka' ? parseInt(settings.deliveryInside || 0) : parseInt(settings.deliveryOutside || 0);
         }
 
-        const total = subtotal + deliveryFee;
+        let total = subtotal + deliveryFee;
         
+        if (this.appliedPromo) {
+            total = total - this.appliedPromo.amount;
+            if (total < 0) total = 0;
+        }
+
         const summaryDelivery = document.getElementById('summary-delivery');
         const summaryTotal = document.getElementById('summary-total');
         
         if (summaryDelivery) summaryDelivery.textContent = deliveryFee === 0 ? 'Free' : formatMoney(deliveryFee);
         if (summaryTotal) summaryTotal.textContent = formatMoney(total);
+        this.togglePaymentInfo(); // Refresh payment text with new total
+    },
+
+    applyPromo() {
+        const input = document.getElementById('promo-input');
+        if (!input) return;
+        const code = input.value.trim().toUpperCase();
+        if (!code) {
+            showToast('Enter a promo code', 'error');
+            return;
+        }
+
+        const coupons = db.get('coupons') || [];
+        const coupon = coupons.find(c => c.code === code);
+
+        if (!coupon) {
+            showToast('Invalid promo code', 'error');
+            return;
+        }
+
+        const cart = db.get('cart');
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+
+        if (coupon.minSpend && subtotal < coupon.minSpend) {
+            showToast(`Minimum spend of ৳${coupon.minSpend} required`, 'error');
+            return;
+        }
+
+        let discountAmount = 0;
+        if (coupon.type === 'percent') {
+            discountAmount = Math.floor((subtotal * coupon.value) / 100);
+        } else {
+            discountAmount = parseFloat(coupon.value);
+        }
+
+        this.appliedPromo = {
+            code: coupon.code,
+            amount: discountAmount
+        };
+        
+        showToast('Promo code applied successfully!', 'success');
+        this.navigate('checkout'); // Re-render to show updated summary HTML
+    },
+
+    removePromo() {
+        this.appliedPromo = null;
+        showToast('Promo code removed', 'info');
+        this.navigate('checkout');
     },
 
     togglePaymentInfo() {
@@ -1144,6 +1218,15 @@ const app = {
         const paymentMethod = document.getElementById('co-payment').value;
         const trxIdElement = document.getElementById('co-trxid');
 
+        let finalTotal = subtotal + deliveryFee;
+        let discount = 0;
+        
+        if (this.appliedPromo) {
+            discount = this.appliedPromo.amount;
+            finalTotal = finalTotal - discount;
+            if (finalTotal < 0) finalTotal = 0;
+        }
+
         const order = {
             id: rawOrderId,
             displayId: rawOrderId,
@@ -1153,8 +1236,10 @@ const app = {
             giftDetails: giftDetails,
             items: cart,
             subtotal: subtotal,
+            discount: discount,
+            promoCode: this.appliedPromo ? this.appliedPromo.code : null,
             deliveryFee: deliveryFee,
-            total: subtotal + deliveryFee,
+            total: finalTotal,
             deliveryMethod: isGift ? (document.getElementById('gift-district') ? document.getElementById('gift-district').value : district) : district,
             paymentMethod: paymentMethod,
             trxId: trxIdElement ? trxIdElement.value : '',
@@ -1164,6 +1249,7 @@ const app = {
         try {
             db.add('orders', order);
             db.set('cart', []); // clear cart
+            this.appliedPromo = null; // clear promo
             this.updateCartCount();
             
             // Generate Thank You Message for Email

@@ -115,6 +115,9 @@ const adminApp = {
             case 'categories':
                 content.innerHTML = this.renderCategories();
                 break;
+            case 'coupons':
+                content.innerHTML = this.renderCoupons();
+                break;
             case 'orders':
                 content.innerHTML = this.renderOrders();
                 break;
@@ -442,6 +445,100 @@ const adminApp = {
         this.navigate('categories');
     },
 
+    // --- Coupons ---
+
+    renderCoupons() {
+        const coupons = db.get('coupons');
+        return `
+            <div class="admin-header">
+                <h2>Promo Codes</h2>
+                <button class="btn btn-primary" onclick="adminApp.openCouponModal()">+ Add New Coupon</button>
+            </div>
+            <div class="table-container mt-2">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Discount</th>
+                            <th>Min Spend</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${coupons.map(c => `
+                            <tr>
+                                <td><strong>${c.code}</strong></td>
+                                <td>${c.type === 'percent' ? c.value + '%' : '৳' + c.value}</td>
+                                <td>${c.minSpend ? '৳' + c.minSpend : 'None'}</td>
+                                <td>
+                                    <button class="btn btn-outline btn-sm action-btn" onclick="adminApp.editCoupon('${c.id}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+                                    <button class="btn btn-outline btn-sm action-btn" style="color:var(--danger); border-color:var(--danger);" onclick="adminApp.confirmDelete('coupons', '${c.id}', '${c.code}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                        ${coupons.length === 0 ? '<tr><td colspan="4" style="text-align:center;">No coupons found</td></tr>' : ''}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    },
+
+    openCouponModal(id = null) {
+        document.getElementById('coupon-form').reset();
+        document.getElementById('co-id').value = '';
+        document.getElementById('coupon-modal-title').textContent = 'Add Coupon';
+        
+        if (id) {
+            const c = db.getOne('coupons', id);
+            if (c) {
+                document.getElementById('coupon-modal-title').textContent = 'Edit Coupon';
+                document.getElementById('co-id').value = c.id;
+                document.getElementById('co-code').value = c.code;
+                document.getElementById('co-type').value = c.type;
+                document.getElementById('co-value').value = c.value;
+                document.getElementById('co-min').value = c.minSpend || '';
+            }
+        }
+        document.getElementById('coupon-modal').classList.add('active');
+    },
+
+    editCoupon(id) {
+        this.openCouponModal(id);
+    },
+
+    saveCoupon(e) {
+        e.preventDefault();
+        const id = document.getElementById('co-id').value;
+        const code = document.getElementById('co-code').value.toUpperCase().trim();
+        const minValStr = document.getElementById('co-min').value;
+        
+        if(!code) { showToast('Code is required', 'error'); return; }
+
+        const coupon = {
+            code: code,
+            type: document.getElementById('co-type').value,
+            value: parseFloat(document.getElementById('co-value').value),
+            minSpend: minValStr ? parseFloat(minValStr) : null
+        };
+
+        if (id) {
+            db.update('coupons', id, coupon);
+            showToast('Coupon updated');
+        } else {
+            // Check duplicate
+            const existing = db.get('coupons').find(c => c.code === code);
+            if(existing) {
+                showToast('Coupon code already exists', 'error');
+                return;
+            }
+            db.add('coupons', coupon);
+            showToast('Coupon added');
+        }
+
+        this.closeModal('coupon-modal');
+        this.navigate('coupons');
+    },
+
     // --- Orders ---
 
     renderOrders() {
@@ -554,6 +651,7 @@ const adminApp = {
                 <div style="text-align:right; margin-top:1rem;">
                     <p>Subtotal: ৳${order.subtotal}</p>
                     <p>Delivery: ৳${order.deliveryFee}</p>
+                    ${order.discount ? `<p style="color:var(--danger)">Discount (${order.promoCode}): -৳${order.discount}</p>` : ''}
                     <h3 class="mt-1">Grand Total: ৳${order.total}</h3>
                 </div>
             </div>
@@ -635,6 +733,11 @@ const adminApp = {
             params.customer_address = o.customer.address;
             params.subtotal = o.subtotal || 0;
             params.delivery_fee = o.deliveryFee || 0;
+            params.discount_html = (o.discount && o.discount > 0) ? `
+        <tr>
+          <td style="padding-bottom: 5px; color: #d32f2f;">Discount (${o.promoCode}):</td>
+          <td style="padding-bottom: 5px; color: #d32f2f;">- BDT ${o.discount}</td>
+        </tr>` : '';
             params.total_amount = o.total;
             params.items_html = o.items.map(i => `${i.qty}x ${i.name} - BDT ${i.price * i.qty}`).join('<br>');
         }

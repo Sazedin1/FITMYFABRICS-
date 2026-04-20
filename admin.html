@@ -35,6 +35,7 @@
                 <li><a href="#" class="active" data-page="dashboard" onclick="adminApp.navigate('dashboard', this)">Dashboard</a></li>
                 <li><a href="#" data-page="products" onclick="adminApp.navigate('products', this)">Products</a></li>
                 <li><a href="#" data-page="categories" onclick="adminApp.navigate('categories', this)">Categories</a></li>
+                <li><a href="#" data-page="coupons" onclick="adminApp.navigate('coupons', this)">Coupons</a></li>
                 <li><a href="#" data-page="orders" onclick="adminApp.navigate('orders', this)">Orders</a></li>
                 <li><a href="#" data-page="customers" onclick="adminApp.navigate('customers', this)">Customers</a></li>
                 <li><a href="#" data-page="appearance" onclick="adminApp.navigate('appearance', this)">Appearance</a></li>
@@ -149,6 +150,39 @@
                     <div id="c-image-preview" class="image-preview-area"></div>
                 </div>
                 <button type="submit" class="btn btn-primary">Save Category</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Coupon Modal -->
+    <div id="coupon-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" onclick="adminApp.closeModal('coupon-modal')">&times;</button>
+            <h2 id="coupon-modal-title">Add Coupon</h2>
+            <form id="coupon-form" onsubmit="adminApp.saveCoupon(event)" class="mt-2">
+                <input type="hidden" id="co-id">
+                <div class="form-group">
+                    <label>Coupon Code (e.g. NEW10) *</label>
+                    <input type="text" id="co-code" required style="text-transform: uppercase;">
+                </div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Discount Type *</label>
+                        <select id="co-type" required>
+                            <option value="percent">Percentage (%)</option>
+                            <option value="fixed">Fixed Amount (৳)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Discount Value *</label>
+                        <input type="number" id="co-value" required min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Minimum Spend (৳)</label>
+                    <input type="number" id="co-min" min="0">
+                </div>
+                <button type="submit" class="btn btn-primary mt-1">Save Coupon</button>
             </form>
         </div>
     </div>
