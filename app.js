@@ -1360,7 +1360,7 @@ You answer questions about products, ordering, policies, etc. Format the price c
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
         try {
-            const apiKey = process.env.GEMINI_API_KEY;
+            const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
             
             if (!apiKey) {
                 aiMsgDiv.textContent = 'Sorry, the AI feature is currently misconfigured (API Key missing).';
