@@ -227,6 +227,26 @@
         </div>
     </footer>
 
+    <!-- Chatbot UI -->
+    <div id="ai-chat-widget" class="ai-chat-widget">
+        <button id="ai-chat-toggle" class="ai-chat-toggle" onclick="app.toggleChatbot()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z"></path></svg>
+        </button>
+        <div id="ai-chat-panel" class="ai-chat-panel hidden">
+            <div class="ai-chat-header">
+                <h3>Customer Service AI</h3>
+                <button class="modal-close" style="position:static" onclick="app.toggleChatbot()">&times;</button>
+            </div>
+            <div id="ai-chat-messages" class="ai-chat-messages">
+                <div class="chat-message ai-message">Hello! I am your virtual assistant for FIT MY FABRICS. How can I help you today?</div>
+            </div>
+            <form id="ai-chat-form" class="ai-chat-input-area" onsubmit="app.sendChatMessage(event)">
+                <input type="text" id="ai-chat-input" placeholder="Type a message..." required autocomplete="off">
+                <button type="submit" class="icon-btn" style="color:var(--primary);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+            </form>
+        </div>
+    </div>
+
     <script type="module" src="/data.js"></script>
     <script type="module" src="/app.js"></script>
 </body>
