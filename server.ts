@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
@@ -14,13 +15,18 @@ async function startServer() {
     res.json({ status: 'ok' });
   });
 
+  app.get('/api/chat/status', (req, res) => {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    res.json({ active: !!apiKey });
+  });
+
   app.post('/api/chat', async (req, res) => {
     try {
-      if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({ error: 'Sorry, the AI feature is currently misconfigured (API Key missing).' });
-      }
+      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
       
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const config = apiKey ? { apiKey } : {};
+      const ai = new GoogleGenAI(config);
+      
       const { history } = req.body;
       
       if (!history || !Array.isArray(history)) {
@@ -33,9 +39,9 @@ async function startServer() {
       });
       
       res.json({ text: response.text });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
-      res.status(500).json({ error: 'Sorry, I am having trouble connecting right now.' });
+      res.status(500).json({ error: error.message || 'Sorry, I am having trouble connecting right now.' });
     }
   });
 

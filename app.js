@@ -11,7 +11,7 @@ const app = {
     appliedPromo: null,
     chatHistory: [],
     
-    init() {
+    async init() {
         const s = db.getSettings();
         if (s.maintenanceMode) {
             document.body.innerHTML = this.renderMaintenance(s);
@@ -26,6 +26,19 @@ const app = {
         this.renderCart();
         this.navigate('home');
         document.getElementById('current-year').textContent = new Date().getFullYear();
+        
+        try {
+            const chatRes = await fetch('/api/chat/status');
+            const data = await chatRes.json();
+            if (!data.active) {
+                const chatWidget = document.getElementById('ai-chat-widget');
+                if (chatWidget) chatWidget.style.display = 'none';
+            }
+        } catch (e) {
+            console.error('Chat status check failed:', e);
+            const chatWidget = document.getElementById('ai-chat-widget');
+            if (chatWidget) chatWidget.style.display = 'none';
+        }
     },
 
     navigate(page, params = {}) {
