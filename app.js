@@ -1356,8 +1356,7 @@ You answer questions about products, ordering, policies, etc. Format the price c
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
         try {
-            // Note: In Vite, we should check if process is defined or error out gracefully, or assume process.env is injected by the framework
-            const apiKey = typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : import.meta.env.VITE_GEMINI_API_KEY;
+            const apiKey = process.env.GEMINI_API_KEY;
             
             if (!apiKey) {
                 aiMsgDiv.textContent = 'Sorry, the AI feature is currently misconfigured (API Key missing).';
