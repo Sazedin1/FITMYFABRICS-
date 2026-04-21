@@ -111,6 +111,21 @@ const app = {
                 logoText.innerHTML = `${logoImg} <span>${name}</span>`;
             }
         }
+        
+        // Update footer social links
+        const socialContainer = document.getElementById('footer-social');
+        if (socialContainer) {
+            let socialHtml = '';
+            if (s.socialFb) socialHtml += `<a href="${s.socialFb}" target="_blank" style="color:var(--white);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg></a>`;
+            if (s.socialIg) socialHtml += `<a href="${s.socialIg}" target="_blank" style="color:var(--white);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg></a>`;
+            if (s.socialTt) socialHtml += `<a href="${s.socialTt}" target="_blank" style="color:var(--white);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path></svg></a>`;
+            if (s.socialYt) socialHtml += `<a href="${s.socialYt}" target="_blank" style="color:var(--white);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33 2.78 2.78 0 0 0 1.94 2c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg></a>`;
+            socialContainer.innerHTML = socialHtml;
+        }
+        
+        // Update footer text
+        const footerAbout = document.getElementById('footer-about');
+        if (footerAbout && s.footerAbout) footerAbout.textContent = s.footerAbout;
     },
 
     renderHome() {
@@ -141,7 +156,7 @@ const app = {
                 <h2 class="section-title">Shop by Category</h2>
                 <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
                     ${categories.map(c => `
-                        <div class="product-card" style="cursor:pointer;" onclick="${c.comingSoon ? "showToast('Coming Soon!');" : `app.navigate('shop', {category: '${c.id}'})`}">
+                        <div class="product-card" style="cursor:pointer;" onclick="app.navigate('shop', {category: '${c.id}'})">
                             <div class="product-img-wrap" style="padding-top: 100%;">
                                 ${c.image ? `<img src="${c.image}" class="product-img">` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:#eee;display:flex;align-items:center;justify-content:center;color:#999;">No Image</div>`}
                             </div>
@@ -194,6 +209,9 @@ const app = {
             if (cat) {
                 title = cat.name;
                 isComingSoon = !!cat.comingSoon;
+                if (products.length === 0) {
+                    isComingSoon = true;
+                }
             }
         }
         if (params.filter === 'new') {
@@ -1460,22 +1478,22 @@ You answer questions about products, ordering, policies, etc. Format the price c
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
         try {
-            const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-            
-            if (!apiKey) {
-                aiMsgDiv.textContent = 'Sorry, the AI feature is currently misconfigured (API Key missing).';
-                return;
-            }
-
-            const ai = new GoogleGenAI({ apiKey: apiKey });
-            
-            // Re-map format for chat history (in genai > v0.x the shape is often passed straight to contents. we can just pass the array to contents)
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: this.chatHistory
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ history: this.chatHistory })
             });
             
-            const replyText = response.text || 'Sorry, I could not understand that.';
+            const data = await response.json();
+            
+            if (!response.ok) {
+                aiMsgDiv.textContent = data.error || 'Sorry, I am having trouble connecting right now.';
+                return;
+            }
+            
+            const replyText = data.text || 'Sorry, I could not understand that.';
             aiMsgDiv.textContent = replyText;
             
             // Add to history

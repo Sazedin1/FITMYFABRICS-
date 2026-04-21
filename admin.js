@@ -1073,6 +1073,26 @@ const adminApp = {
                         </label>
                     </div>
 
+                    <h3 class="mt-2">Social Media Links</h3>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap; background: #f9fafb; padding:1rem; border-radius:4px;" class="mt-1">
+                        <div class="form-group" style="flex:1; min-width: 200px;">
+                            <label>Facebook URL</label>
+                            <input type="text" id="a-social-fb" value="${s.socialFb || ''}" placeholder="https://facebook.com/yourpage">
+                        </div>
+                        <div class="form-group" style="flex:1; min-width: 200px;">
+                            <label>Instagram URL</label>
+                            <input type="text" id="a-social-ig" value="${s.socialIg || ''}" placeholder="https://instagram.com/yourhandle">
+                        </div>
+                        <div class="form-group" style="flex:1; min-width: 200px;">
+                            <label>TikTok URL</label>
+                            <input type="text" id="a-social-tt" value="${s.socialTt || ''}" placeholder="https://tiktok.com/@yourhandle">
+                        </div>
+                        <div class="form-group" style="flex:1; min-width: 200px;">
+                            <label>YouTube URL</label>
+                            <input type="text" id="a-social-yt" value="${s.socialYt || ''}" placeholder="https://youtube.com/c/yourchannel">
+                        </div>
+                    </div>
+
                     <h3 class="mt-2">Footer</h3>
                     <div class="form-group mt-1">
                         <label>About Text</label>
@@ -1103,6 +1123,11 @@ const adminApp = {
         settings.showFeatured = document.getElementById('a-show-featured').checked;
         settings.showNewArrivals = document.getElementById('a-show-new').checked;
         settings.showOnSale = document.getElementById('a-show-sale').checked;
+
+        settings.socialFb = document.getElementById('a-social-fb').value.trim();
+        settings.socialIg = document.getElementById('a-social-ig').value.trim();
+        settings.socialTt = document.getElementById('a-social-tt').value.trim();
+        settings.socialYt = document.getElementById('a-social-yt').value.trim();
 
         settings.heroImage = this.tempAppearance.hero;
         settings.storeLogo = this.tempAppearance.logo;
