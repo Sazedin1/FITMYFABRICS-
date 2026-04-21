@@ -141,49 +141,60 @@ const app = {
                 <h2 class="section-title">Shop by Category</h2>
                 <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
                     ${categories.map(c => `
-                        <div class="product-card" style="cursor:pointer;" onclick="app.navigate('shop', {category: '${c.id}'})">
+                        <div class="product-card" style="cursor:pointer;" onclick="${c.comingSoon ? "showToast('Coming Soon!');" : `app.navigate('shop', {category: '${c.id}'})`}">
                             <div class="product-img-wrap" style="padding-top: 100%;">
                                 ${c.image ? `<img src="${c.image}" class="product-img">` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:#eee;display:flex;align-items:center;justify-content:center;color:#999;">No Image</div>`}
                             </div>
                             <div class="product-info">
                                 <h3 class="product-title">${c.name}</h3>
+                                ${c.comingSoon ? '<span style="color:var(--text-light); font-size: 0.8rem;">Coming Soon</span>' : ''}
                             </div>
                         </div>
                     `).join('')}
                 </div>
             </section>
 
+            ${s.showFeatured !== false ? `
             <section class="container">
                 <h2 class="section-title">Featured Products</h2>
                 <div class="product-grid">
                     ${featured.map(p => this.renderProductCard(p)).join('')}
                 </div>
             </section>
+            ` : ''}
 
+            ${s.showNewArrivals !== false ? `
             <section class="container">
                 <h2 class="section-title">New Arrivals</h2>
                 <div class="product-grid">
                     ${newArrivals.map(p => this.renderProductCard(p)).join('')}
                 </div>
             </section>
+            ` : ''}
             
+            ${s.showOnSale !== false ? `
             <section class="container mb-2">
                 <h2 class="section-title">On Sale</h2>
                 <div class="product-grid">
                     ${sale.map(p => this.renderProductCard(p)).join('')}
                 </div>
             </section>
+            ` : ''}
         `;
     },
 
     renderShop(params) {
         let products = db.get('products').filter(p => p.status === 'Active');
         let title = 'All Products';
+        let isComingSoon = false;
 
         if (params.category) {
             products = products.filter(p => p.category === params.category);
             const cat = db.getOne('categories', params.category);
-            if (cat) title = cat.name;
+            if (cat) {
+                title = cat.name;
+                isComingSoon = !!cat.comingSoon;
+            }
         }
         if (params.filter === 'new') {
             products = products.filter(p => p.newArrival);
@@ -192,6 +203,17 @@ const app = {
         if (params.filter === 'sale') {
             products = products.filter(p => p.discountPrice);
             title = 'Sale Items';
+        }
+
+        if (isComingSoon) {
+            return `
+                <div class="container mt-2 mb-2" style="min-height: 50vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" style="margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <h1 style="margin-bottom: 1rem;">Coming Soon!</h1>
+                    <p style="color:var(--text-light); max-width: 500px;">We are currently working on bringing you the best items for ${title}. Stay tuned!</p>
+                    <button class="btn btn-primary mt-2" onclick="app.navigate('home')">Back to Home</button>
+                </div>
+            `;
         }
 
         return `
@@ -213,12 +235,13 @@ const app = {
                 <h1 style="margin-bottom: 2rem;">All Categories</h1>
                 <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
                     ${categories.map(c => `
-                        <div class="product-card" style="cursor:pointer;" onclick="app.navigate('shop', {category: '${c.id}'})">
+                        <div class="product-card" style="cursor:pointer;" onclick="${c.comingSoon ? "app.navigate('shop', {category: '"+c.id+"'})" : `app.navigate('shop', {category: '${c.id}'})`}">
                             <div class="product-img-wrap" style="padding-top: 100%;">
                                 ${c.image ? `<img src="${c.image}" class="product-img">` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:#eee;display:flex;align-items:center;justify-content:center;color:#999;">No Image</div>`}
                             </div>
                             <div class="product-info">
                                 <h3 class="product-title">${c.name}</h3>
+                                ${c.comingSoon ? '<span style="color:var(--text-light); font-size: 0.8rem;">Coming Soon</span>' : ''}
                             </div>
                         </div>
                     `).join('')}
@@ -256,10 +279,15 @@ const app = {
                             ${priceHtml}
                         </div>
                         
-                        <div class="form-group">
+                        <div class="form-group" style="${product.sizes && product.sizes.length > 0 ? '' : 'display:none;'}">
                             <label>Size</label>
                             <select id="pd-size">
-                                ${product.sizes.map(s => `<option value="${s}">${s}</option>`).join('')}
+                                ${product.sizes ? product.sizes.map(s => {
+                                    const stockCount = (product.sizeStock && typeof product.sizeStock[s] !== 'undefined') ? product.sizeStock[s] : -1;
+                                    const outOfStock = stockCount === 0;
+                                    const label = outOfStock ? `${s} - Out of Stock` : (stockCount > 0 ? `${s} (${stockCount} left)` : s);
+                                    return `<option value="${s}" ${outOfStock ? 'disabled' : ''}>${label}</option>`;
+                                }).join('') : ''}
                             </select>
                         </div>
                         
@@ -881,16 +909,27 @@ const app = {
     quickAddToCart(productId) {
         const product = db.getOne('products', productId);
         if (!product) return;
-        this.addToCartAction(product, product.sizes[0], product.colors[0], 1);
+        let size = null;
+        if (product.sizes && product.sizes.length > 0) {
+            size = product.sizes.find(s => !product.sizeStock || typeof product.sizeStock[s] === 'undefined' || product.sizeStock[s] > 0);
+            if (!size) {
+                 showToast('Out of stock', 'error');
+                 return;
+            }
+        } else {
+            size = product.sizes ? product.sizes[0] : null;
+        }
+        this.addToCartAction(product, size, product.colors ? product.colors[0] : null, 1);
     },
 
     addToCart(productId) {
         const product = db.getOne('products', productId);
         if (!product) return;
         
-        const size = document.getElementById('pd-size').value;
+        const sizeEl = document.getElementById('pd-size');
+        const size = sizeEl && sizeEl.value ? sizeEl.value : null;
         const colorInput = document.querySelector('input[name="pd-color"]:checked');
-        const color = colorInput ? colorInput.value : product.colors[0];
+        const color = colorInput ? colorInput.value : (product.colors ? product.colors[0] : null);
         const qty = parseInt(document.getElementById('pd-qty').value) || 1;
 
         this.addToCartAction(product, size, color, qty);
@@ -901,6 +940,19 @@ const app = {
         const price = product.discountPrice || product.price;
         
         const existingIndex = cart.findIndex(item => item.id === product.id && item.size === size && item.color === color);
+        const existingQty = existingIndex > -1 ? cart[existingIndex].qty : 0;
+        const requestedQty = existingQty + qty;
+
+        // Stock check
+        let availableStock = product.stock || 0;
+        if (size && product.sizeStock && typeof product.sizeStock[size] !== 'undefined') {
+            availableStock = product.sizeStock[size];
+        }
+
+        if (requestedQty > availableStock) {
+            showToast(`Sorry, only ${availableStock} items in stock for this selection.`, 'error');
+            return;
+        }
         
         if (existingIndex > -1) {
             cart[existingIndex].qty += qty;
@@ -933,8 +985,26 @@ const app = {
 
     updateCartQty(index, delta) {
         const cart = db.get('cart');
-        cart[index].qty += delta;
-        if (cart[index].qty < 1) cart[index].qty = 1;
+        const item = cart[index];
+        const newQty = item.qty + delta;
+        if (newQty < 1) {
+            item.qty = 1;
+        } else {
+            // Check stock
+            const product = db.getOne('products', item.id);
+            if (product) {
+                let availableStock = product.stock || 0;
+                if (item.size && product.sizeStock && typeof product.sizeStock[item.size] !== 'undefined') {
+                    availableStock = product.sizeStock[item.size];
+                }
+                if (newQty > availableStock) {
+                    showToast(`Sorry, only ${availableStock} items in stock.`, 'error');
+                    return;
+                }
+            }
+            item.qty = newQty;
+        }
+        
         db.set('cart', cart);
         this.renderCart();
     },
@@ -1254,6 +1324,24 @@ const app = {
         };
 
         try {
+            // Deduct stock
+            cart.forEach(item => {
+                const p = db.getOne('products', item.id);
+                if (p) {
+                    let updatedStock = p.stock || 0;
+                    updatedStock -= item.qty;
+                    if (updatedStock < 0) updatedStock = 0;
+                    p.stock = updatedStock;
+                    
+                    if (p.sizeStock && item.size && typeof p.sizeStock[item.size] !== 'undefined') {
+                        let updatedSizeStock = p.sizeStock[item.size] - item.qty;
+                        if (updatedSizeStock < 0) updatedSizeStock = 0;
+                        p.sizeStock[item.size] = updatedSizeStock;
+                    }
+                    db.update('products', p.id, p);
+                }
+            });
+
             db.add('orders', order);
             db.set('cart', []); // clear cart
             this.appliedPromo = null; // clear promo
@@ -1311,6 +1399,18 @@ const app = {
         
         const footerStoreName = document.getElementById('footer-store-name');
         if (footerStoreName) footerStoreName.textContent = settings.storeName || 'FIT MY FABRICS';
+
+        const socialContainer = document.getElementById('footer-social');
+        if (socialContainer) {
+            let socialHtml = '';
+            if (settings.facebook && settings.facebook !== '#') socialHtml += `<a href="${settings.facebook}" target="_blank" style="color:#ccc;">Fb</a>`;
+            if (settings.instagram && settings.instagram !== '#') socialHtml += `<a href="${settings.instagram}" target="_blank" style="color:#ccc;">Ig</a>`;
+            if (settings.whatsapp && settings.whatsapp !== '#') socialHtml += `<a href="${settings.whatsapp}" target="_blank" style="color:#ccc;">Wa</a>`;
+            if (settings.youtube && settings.youtube !== '#') socialHtml += `<a href="${settings.youtube}" target="_blank" style="color:#ccc;">Yt</a>`;
+            if (settings.tiktok && settings.tiktok !== '#') socialHtml += `<a href="${settings.tiktok}" target="_blank" style="color:#ccc;">Tt</a>`;
+            if (settings.twitter && settings.twitter !== '#') socialHtml += `<a href="${settings.twitter}" target="_blank" style="color:#ccc;">Tw</a>`;
+            socialContainer.innerHTML = socialHtml;
+        }
     },
 
     toggleChatbot() {

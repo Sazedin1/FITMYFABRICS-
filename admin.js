@@ -121,6 +121,9 @@ const adminApp = {
             case 'orders':
                 content.innerHTML = this.renderOrders();
                 break;
+            case 'accounting':
+                content.innerHTML = this.renderAccounting();
+                break;
             case 'customers':
                 content.innerHTML = this.renderCustomers();
                 break;
@@ -153,6 +156,7 @@ const adminApp = {
         const totalRev = orders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + o.total, 0);
         const pendingOrders = orders.filter(o => o.status === 'Pending').length;
         const lowStock = products.filter(p => p.stock < 5);
+        const totalQuantity = products.reduce((sum, p) => sum + (p.stock || 0), 0);
 
         return `
             <div class="admin-header">
@@ -163,6 +167,10 @@ const adminApp = {
                 <div class="stat-card">
                     <div class="stat-title">Total Products</div>
                     <div class="stat-value">${products.length}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Total Quantity</div>
+                    <div class="stat-value">${totalQuantity}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-title">Total Orders</div>
@@ -298,11 +306,33 @@ const adminApp = {
             document.getElementById('p-name').value = p.name;
             document.getElementById('p-category').value = p.category;
             document.getElementById('p-price').value = p.price;
+            document.getElementById('p-cost').value = p.costPrice || '';
             document.getElementById('p-discount').value = p.discountPrice || '';
             document.getElementById('p-stock').value = p.stock;
             document.getElementById('p-sku').value = p.sku;
             document.getElementById('p-desc').value = p.description;
-            document.getElementById('p-sizes').value = p.sizes.join(', ');
+            
+            const sizeRows = document.getElementById('p-size-rows');
+            sizeRows.innerHTML = '';
+            
+            // Legacy mapping if p.sizeStock doesn't exist but p.sizes does
+            if (!p.sizeStock && p.sizes && p.sizes.length > 0) {
+                p.sizeStock = {};
+                // distribute stock roughly
+                let distStock = Math.floor(p.stock / p.sizes.length);
+                p.sizes.forEach(sz => p.sizeStock[sz] = distStock);
+            }
+            
+            if (p.sizeStock && Object.keys(p.sizeStock).length > 0) {
+                Object.entries(p.sizeStock).forEach(([sz, st]) => {
+                    this.addSizeRow(sz, st);
+                });
+            } else if (p.sizes && p.sizes.length > 0) {
+                p.sizes.forEach(sz => this.addSizeRow(sz, 0));
+            } else {
+                 // No sizes, just a generic stock
+            }
+
             document.getElementById('p-colors').value = p.colors.join(', ');
             document.getElementById('p-active').checked = p.status === 'Active';
             document.getElementById('p-featured').checked = p.featured;
@@ -315,23 +345,72 @@ const adminApp = {
         } else {
             document.getElementById('product-modal-title').textContent = 'Add Product';
             document.getElementById('p-id').value = '';
+            document.getElementById('p-size-rows').innerHTML = '';
         }
 
         document.getElementById('product-modal').classList.add('active');
     },
 
+    addSizeRow(sizeName = '', currentStock = 0) {
+        const container = document.getElementById('p-size-rows');
+        const row = document.createElement('div');
+        row.className = 'size-row mt-1';
+        row.style.cssText = 'display:flex; gap:1rem; align-items:center; margin-bottom:0.5rem;';
+        
+        row.innerHTML = `
+            <input type="text" class="size-name" value="${sizeName}" placeholder="e.g. M" style="flex:2;" required>
+            <input type="number" class="size-current-stock" value="${currentStock}" disabled style="flex:1; background:#f0f0f0;">
+            <input type="number" class="size-add-stock" value="0" placeholder="Add/Remove" style="flex:1;" onchange="adminApp.calcTotalStock()">
+            <button type="button" class="btn btn-outline" style="border-color:var(--danger); color:var(--danger); padding:0.5rem;" onclick="this.parentElement.remove(); adminApp.calcTotalStock();">&times;</button>
+        `;
+        container.appendChild(row);
+        this.calcTotalStock();
+    },
+
+    calcTotalStock() {
+        const rows = document.querySelectorAll('.size-row');
+        let total = 0;
+        rows.forEach(r => {
+            const current = parseInt(r.querySelector('.size-current-stock').value) || 0;
+            const add = parseInt(r.querySelector('.size-add-stock').value) || 0;
+            const newStock = Math.max(0, current + add);
+            total += newStock;
+        });
+        document.getElementById('p-stock').value = total;
+    },
+
     saveProduct(e) {
         e.preventDefault();
         const id = document.getElementById('p-id').value;
+        
+        // Grab sizes
+        const sizeRows = document.querySelectorAll('.size-row');
+        let sizes = [];
+        let sizeStock = {};
+        
+        sizeRows.forEach(row => {
+            const szName = row.querySelector('.size-name').value.trim();
+            const current = parseInt(row.querySelector('.size-current-stock').value) || 0;
+            const add = parseInt(row.querySelector('.size-add-stock').value) || 0;
+            const newStk = Math.max(0, current + add);
+            
+            if (szName) {
+                sizes.push(szName);
+                sizeStock[szName] = newStk;
+            }
+        });
+
         const product = {
             name: document.getElementById('p-name').value,
             category: document.getElementById('p-category').value,
             price: parseFloat(document.getElementById('p-price').value),
+            costPrice: document.getElementById('p-cost').value ? parseFloat(document.getElementById('p-cost').value) : null,
             discountPrice: document.getElementById('p-discount').value ? parseFloat(document.getElementById('p-discount').value) : null,
-            stock: parseInt(document.getElementById('p-stock').value),
+            stock: parseInt(document.getElementById('p-stock').value) || 0,
             sku: document.getElementById('p-sku').value,
             description: document.getElementById('p-desc').value,
-            sizes: document.getElementById('p-sizes').value.split(',').map(s => s.trim()).filter(s => s),
+            sizes: sizes,
+            sizeStock: sizeStock,
             colors: document.getElementById('p-colors').value.split(',').map(s => s.trim()).filter(s => s),
             status: document.getElementById('p-active').checked ? 'Active' : 'Draft',
             featured: document.getElementById('p-featured').checked,
@@ -408,6 +487,7 @@ const adminApp = {
             document.getElementById('c-name').value = c.name;
             document.getElementById('c-desc').value = c.description;
             document.getElementById('c-active').checked = c.status === 'Active';
+            document.getElementById('c-coming-soon').checked = !!c.comingSoon;
             
             if (c.image) {
                 this.tempImages = [c.image];
@@ -416,6 +496,7 @@ const adminApp = {
         } else {
             document.getElementById('cat-modal-title').textContent = 'Add Category';
             document.getElementById('c-id').value = '';
+            document.getElementById('c-coming-soon').checked = false;
         }
 
         document.getElementById('category-modal').classList.add('active');
@@ -430,6 +511,7 @@ const adminApp = {
             slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
             description: document.getElementById('c-desc').value,
             status: document.getElementById('c-active').checked ? 'Active' : 'Hidden',
+            comingSoon: document.getElementById('c-coming-soon').checked,
             image: this.tempImages.length > 0 ? this.tempImages[0] : ''
         };
 
@@ -568,7 +650,10 @@ const adminApp = {
                                 <td>৳${o.total}</td>
                                 <td><span class="badge-tag ${o.status==='Pending'?'badge-sale':'badge-new'}">${o.status}</span></td>
                                 <td>
-                                    <button class="action-btn edit-btn" onclick="adminApp.openOrderModal('${o.id}')">View</button>
+                                    <div class="action-btns">
+                                        <button class="action-btn edit-btn" onclick="adminApp.openOrderModal('${o.id}')">View</button>
+                                        <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('orders', '${o.id}', 'Order ${o.id}')">Delete</button>
+                                    </div>
                                 </td>
                             </tr>
                         `).join('')}
@@ -770,6 +855,72 @@ const adminApp = {
         }
     },
 
+    // --- Accounting & Reports ---
+    renderAccounting() {
+        const orders = db.get('orders');
+        const products = db.get('products');
+        
+        let totalRevenue = 0;
+        let totalCost = 0;
+        let totalDelivered = 0;
+
+        orders.forEach(o => {
+            if (o.status === 'Delivered') {
+                totalDelivered++;
+                totalRevenue += (o.total || 0);
+
+                o.items.forEach(item => {
+                    const productObj = products.find(p => p.id === item.id);
+                    // Use product's current costPrice, fallback to 0 if not set
+                    const itemCost = productObj && productObj.costPrice ? Number(productObj.costPrice) : 0;
+                    totalCost += (itemCost * item.qty);
+                });
+            }
+        });
+
+        const grossProfit = totalRevenue - totalCost;
+        const stockValuation = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.costPrice || 0)), 0);
+
+        return `
+            <div class="admin-header">
+                <h2>Accounting & Profit/Loss</h2>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Gross Revenue (Delivered)</div>
+                    <div class="stat-value">৳${totalRevenue.toLocaleString('en-IN')}</div>
+                    <div style="font-size:0.875rem; color:var(--text-light); margin-top:0.5rem;">From ${totalDelivered} orders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Estimated Product Costs</div>
+                    <div class="stat-value" style="color:var(--danger);">৳${totalCost.toLocaleString('en-IN')}</div>
+                    <div style="font-size:0.875rem; color:var(--text-light); margin-top:0.5rem;">Based on current Buy Price</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Gross Profit</div>
+                    <div class="stat-value" style="color:var(--success);">৳${grossProfit.toLocaleString('en-IN')}</div>
+                    <div style="font-size:0.875rem; color:var(--text-light); margin-top:0.5rem;">Revenue - Costs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Current Stock Valuation</div>
+                    <div class="stat-value">৳${stockValuation.toLocaleString('en-IN')}</div>
+                    <div style="font-size:0.875rem; color:var(--text-light); margin-top:0.5rem;">Total Buy Price in Stock</div>
+                </div>
+            </div>
+
+            <div style="background:var(--white); padding:2rem; border-radius:8px; margin-top:2rem;">
+                <h3>Accounting Notes:</h3>
+                <ul style="color:var(--text-light); margin-left:1.5rem; margin-top:1rem; line-height:1.6;">
+                    <li><strong>Revenue</strong> is calculated strictly from orders marked as <strong>"Delivered"</strong>.</li>
+                    <li><strong>Estimated Product Costs</strong> are derived from the <strong>Buy/Cost Price</strong> field of each product multiplied by the quantity sold.</li>
+                    <li>If a product does not have a <strong>Buy/Cost Price</strong> set, its cost is calculated as ৳0. Ensure all products have a cost price set in the Products tab for an accurate P&L.</li>
+                    <li>Shipping costs and operational expenses (like marketing, salaries) are not deducted from this gross margin.</li>
+                </ul>
+            </div>
+        `;
+    },
+
     // --- Customers ---
 
     renderCustomers() {
@@ -906,6 +1057,22 @@ const adminApp = {
                         </div>
                     </div>
 
+                    <h3 class="mt-2">Homepage Sections (Show/Hide)</h3>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap; background: #f9fafb; padding:1rem; border-radius:4px;" class="mt-1">
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" id="a-show-featured" ${s.showFeatured !== false ? 'checked' : ''} style="width:auto;">
+                            <span>Featured Products</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" id="a-show-new" ${s.showNewArrivals !== false ? 'checked' : ''} style="width:auto;">
+                            <span>New Arrivals</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" id="a-show-sale" ${s.showOnSale !== false ? 'checked' : ''} style="width:auto;">
+                            <span>On Sale</span>
+                        </label>
+                    </div>
+
                     <h3 class="mt-2">Footer</h3>
                     <div class="form-group mt-1">
                         <label>About Text</label>
@@ -932,6 +1099,10 @@ const adminApp = {
         settings.heroBannerHeight = document.getElementById('a-hero-height').value;
         settings.productImgWidth = document.getElementById('a-product-width').value;
         settings.productImgHeight = document.getElementById('a-product-height').value;
+
+        settings.showFeatured = document.getElementById('a-show-featured').checked;
+        settings.showNewArrivals = document.getElementById('a-show-new').checked;
+        settings.showOnSale = document.getElementById('a-show-sale').checked;
 
         settings.heroImage = this.tempAppearance.hero;
         settings.storeLogo = this.tempAppearance.logo;
@@ -986,6 +1157,18 @@ const adminApp = {
                         <div class="form-group" style="flex:1;"><label>Rocket</label><input type="text" id="s-rocket" value="${s.rocket}"></div>
                     </div>
 
+                    <h3 class="mt-2">Social Media Links</h3>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="mt-1">
+                        <div class="form-group" style="flex:1;"><label>Facebook URL</label><input type="text" id="s-facebook" value="${s.facebook || ''}"></div>
+                        <div class="form-group" style="flex:1;"><label>Instagram URL</label><input type="text" id="s-instagram" value="${s.instagram || ''}"></div>
+                        <div class="form-group" style="flex:1;"><label>WhatsApp URL / Number</label><input type="text" id="s-whatsapp" value="${s.whatsapp || ''}"></div>
+                    </div>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="mt-1">
+                        <div class="form-group" style="flex:1;"><label>YouTube URL</label><input type="text" id="s-youtube" value="${s.youtube || ''}"></div>
+                        <div class="form-group" style="flex:1;"><label>TikTok URL</label><input type="text" id="s-tiktok" value="${s.tiktok || ''}"></div>
+                        <div class="form-group" style="flex:1;"><label>Twitter/X URL</label><input type="text" id="s-twitter" value="${s.twitter || ''}"></div>
+                    </div>
+
                     <h3 class="mt-2">Delivery Charges (৳)</h3>
                     <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="mt-1">
                         <div class="form-group" style="flex:1;"><label>Inside Dhaka</label><input type="number" id="s-del-in" value="${s.deliveryInside}"></div>
@@ -1030,7 +1213,12 @@ const adminApp = {
             deliveryOutside: parseInt(document.getElementById('s-del-out').value),
             deliveryExpress: parseInt(document.getElementById('s-del-exp').value),
             freeDeliveryThreshold: parseInt(document.getElementById('s-del-free').value),
-            facebook: '#', instagram: '#', whatsapp: '#',
+            facebook: document.getElementById('s-facebook').value, 
+            instagram: document.getElementById('s-instagram').value, 
+            whatsapp: document.getElementById('s-whatsapp').value,
+            youtube: document.getElementById('s-youtube').value,
+            tiktok: document.getElementById('s-tiktok').value,
+            twitter: document.getElementById('s-twitter').value,
             mailProvider: document.getElementById('s-mail-provider').value,
             mailServiceId: document.getElementById('s-mail-service').value,
             mailTemplateId: document.getElementById('s-mail-template').value,
@@ -1186,6 +1374,7 @@ const adminApp = {
                                 <label><input type="checkbox" class="cb-access" value="products"> Products</label>
                                 <label><input type="checkbox" class="cb-access" value="categories"> Categories</label>
                                 <label><input type="checkbox" class="cb-access" value="orders"> Orders</label>
+                                <label><input type="checkbox" class="cb-access" value="accounting"> Accounting</label>
                                 <label><input type="checkbox" class="cb-access" value="customers"> Customers</label>
                                 <label><input type="checkbox" class="cb-access" value="appearance"> Appearance</label>
                                 <label><input type="checkbox" class="cb-access" value="settings"> Settings</label>

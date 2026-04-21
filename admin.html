@@ -37,6 +37,7 @@
                 <li><a href="#" data-page="categories" onclick="adminApp.navigate('categories', this)">Categories</a></li>
                 <li><a href="#" data-page="coupons" onclick="adminApp.navigate('coupons', this)">Coupons</a></li>
                 <li><a href="#" data-page="orders" onclick="adminApp.navigate('orders', this)">Orders</a></li>
+                <li><a href="#" data-page="accounting" onclick="adminApp.navigate('accounting', this)">Accounting</a></li>
                 <li><a href="#" data-page="customers" onclick="adminApp.navigate('customers', this)">Customers</a></li>
                 <li><a href="#" data-page="appearance" onclick="adminApp.navigate('appearance', this)">Appearance</a></li>
                 <li><a href="#" data-page="settings" onclick="adminApp.navigate('settings', this)">Settings</a></li>
@@ -87,12 +88,16 @@
                         <input type="number" id="p-price" required min="0">
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 150px;">
+                        <label>Buy/Cost Price (৳)</label>
+                        <input type="number" id="p-cost" min="0" placeholder="Optional. Used for P&L">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 150px;">
                         <label>Discount Price (৳)</label>
                         <input type="number" id="p-discount" min="0">
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 150px;">
-                        <label>Stock *</label>
-                        <input type="number" id="p-stock" required min="0">
+                        <label>Total Stock</label>
+                        <input type="number" id="p-stock" readonly style="background:#eee;">
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 150px;">
                         <label>SKU</label>
@@ -103,11 +108,23 @@
                     <label>Description</label>
                     <textarea id="p-desc" rows="4"></textarea>
                 </div>
-                <div class="form-group">
-                    <label>Sizes (comma separated, e.g., S, M, L, XL)</label>
-                    <input type="text" id="p-sizes" placeholder="S, M, L">
+                
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Inventory & Sizes</h4>
+                <div id="p-sizes-container" style="background: var(--bg-light); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <div style="display: flex; gap: 1rem; font-weight: 500; font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--text-light);">
+                        <div style="flex: 2;">Size Name (e.g. S, M, L or Free Size)</div>
+                        <div style="flex: 1;">Current Stock</div>
+                        <div style="flex: 1;">Add / Modify Stock</div>
+                        <div style="width: 30px;"></div>
+                    </div>
+                    <div id="p-size-rows">
+                        <!-- Dynamic rows injected here -->
+                    </div>
+                    <button type="button" class="btn btn-outline mt-1" onclick="adminApp.addSizeRow()">+ Add Size</button>
+                    <small style="display:block; color:var(--text-light); margin-top:0.5rem;">Leave empty if product has no sizes.</small>
                 </div>
-                <div class="form-group">
+
+                <div class="form-group mt-2">
                     <label>Colors (comma separated hex codes, e.g., #000000, #ffffff)</label>
                     <input type="text" id="p-colors" placeholder="#000000, #ffffff">
                 </div>
@@ -143,6 +160,10 @@
                 </div>
                 <div class="form-group">
                     <label><input type="checkbox" id="c-active" checked> Active Status</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="c-coming-soon"> Mark as "Coming Soon"</label>
+                    <small style="color:var(--text-light); display:block; margin-top:2px;">If checked, clicking this category will show a Coming Soon message instead of products.</small>
                 </div>
                 <div class="form-group">
                     <label>Image</label>

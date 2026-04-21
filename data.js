@@ -28,6 +28,9 @@ const defaultSettings = {
     facebook: '#',
     instagram: '#',
     whatsapp: '#',
+    youtube: '',
+    tiktok: '',
+    twitter: '',
     mailProvider: 'simulation',
     mailServiceId: '',
     mailTemplateId: '',
@@ -41,6 +44,9 @@ const defaultSettings = {
     storeLogo: '',
     logoDisplayMode: 'logo-text',
     footerAbout: 'Wear Your Style. Premium clothing for the modern Bangladeshi.',
+    showFeatured: true,
+    showNewArrivals: true,
+    showOnSale: true,
     maintenanceMode: false,
     heroBannerWidth: '100%',
     heroBannerHeight: '400px',
@@ -49,26 +55,26 @@ const defaultSettings = {
 };
 
 const seedCategories = [
-    { id: 'c1', name: "Men's Wear", slug: 'mens-wear', description: 'Fashion for men', status: 'Active', image: '' },
-    { id: 'c2', name: "Women's Wear", slug: 'womens-wear', description: 'Fashion for women', status: 'Active', image: '' },
-    { id: 'c3', name: "Kids Collection", slug: 'kids-collection', description: 'Fashion for kids', status: 'Active', image: '' },
-    { id: 'c4', name: "Traditional & Ethnic", slug: 'traditional-ethnic', description: 'Traditional wear', status: 'Active', image: '' },
-    { id: 'c5', name: "Accessories", slug: 'accessories', description: 'Fashion accessories', status: 'Active', image: '' }
+    { id: 'c1', name: "Men's Wear", slug: 'mens-wear', description: 'Fashion for men', status: 'Active', comingSoon: false, image: '' },
+    { id: 'c2', name: "Women's Wear", slug: 'womens-wear', description: 'Fashion for women', status: 'Active', comingSoon: true, image: '' },
+    { id: 'c3', name: "Kids Collection", slug: 'kids-collection', description: 'Fashion for kids', status: 'Active', comingSoon: true, image: '' },
+    { id: 'c4', name: "Traditional & Ethnic", slug: 'traditional-ethnic', description: 'Traditional wear', status: 'Active', comingSoon: true, image: '' },
+    { id: 'c5', name: "Accessories", slug: 'accessories', description: 'Fashion accessories', status: 'Active', comingSoon: true, image: '' }
 ];
 
 const seedProducts = [
-    { id: 'p1', name: 'Classic White Shirt', category: 'c1', price: 1299, discountPrice: 999, stock: 50, sku: 'M-001', sizes: ['S', 'M', 'L', 'XL'], colors: ['#ffffff'], images: [], status: 'Active', featured: true, newArrival: false, description: 'A classic white shirt for men.' },
-    { id: 'p2', name: 'Denim Jacket', category: 'c1', price: 2499, discountPrice: null, stock: 20, sku: 'M-002', sizes: ['M', 'L', 'XL'], colors: ['#1e3a8a'], images: [], status: 'Active', featured: false, newArrival: true, description: 'Stylish denim jacket.' },
-    { id: 'p3', name: 'Casual Chinos', category: 'c1', price: 1499, discountPrice: 1299, stock: 30, sku: 'M-003', sizes: ['30', '32', '34'], colors: ['#d1d5db', '#4b5563'], images: [], status: 'Active', featured: false, newArrival: false, description: 'Comfortable casual chinos.' },
-    { id: 'p4', name: 'Floral Summer Dress', category: 'c2', price: 1899, discountPrice: null, stock: 15, sku: 'W-001', sizes: ['S', 'M', 'L'], colors: ['#fecaca', '#bfdbfe'], images: [], status: 'Active', featured: true, newArrival: true, description: 'Beautiful floral summer dress.' },
-    { id: 'p5', name: 'Elegant Saree', category: 'c4', price: 4500, discountPrice: 3999, stock: 10, sku: 'T-001', sizes: ['Free Size'], colors: ['#dc2626', '#16a34a'], images: [], status: 'Active', featured: true, newArrival: false, description: 'Traditional elegant saree.' },
-    { id: 'p6', name: 'Kids T-Shirt Combo', category: 'c3', price: 899, discountPrice: 799, stock: 40, sku: 'K-001', sizes: ['2-3Y', '4-5Y', '6-7Y'], colors: ['#fef08a', '#93c5fd'], images: [], status: 'Active', featured: false, newArrival: true, description: 'Pack of 2 kids t-shirts.' },
-    { id: 'p7', name: 'Leather Wallet', category: 'c5', price: 599, discountPrice: null, stock: 100, sku: 'A-001', sizes: ['Free Size'], colors: ['#78350f', '#000000'], images: [], status: 'Active', featured: false, newArrival: false, description: 'Genuine leather wallet.' },
-    { id: 'p8', name: 'Silk Panjabi', category: 'c4', price: 2199, discountPrice: 1999, stock: 25, sku: 'T-002', sizes: ['38', '40', '42', '44'], colors: ['#000000', '#1e40af'], images: [], status: 'Active', featured: true, newArrival: true, description: 'Premium silk panjabi.' },
-    { id: 'p9', name: 'Women Denim Pants', category: 'c2', price: 1599, discountPrice: null, stock: 35, sku: 'W-002', sizes: ['28', '30', '32'], colors: ['#1e3a8a', '#000000'], images: [], status: 'Active', featured: false, newArrival: false, description: 'High waist denim pants.' },
-    { id: 'p10', name: 'Kids Party Frock', category: 'c3', price: 1799, discountPrice: 1499, stock: 12, sku: 'K-002', sizes: ['3-4Y', '5-6Y'], colors: ['#fbcfe8'], images: [], status: 'Active', featured: true, newArrival: false, description: 'Cute party frock for girls.' },
-    { id: 'p11', name: 'Sunglasses', category: 'c5', price: 499, discountPrice: 399, stock: 50, sku: 'A-002', sizes: ['Free Size'], colors: ['#000000'], images: [], status: 'Active', featured: false, newArrival: true, description: 'UV protection sunglasses.' },
-    { id: 'p12', name: 'Formal Trousers', category: 'c1', price: 1699, discountPrice: null, stock: 28, sku: 'M-004', sizes: ['30', '32', '34', '36'], colors: ['#000000', '#374151'], images: [], status: 'Active', featured: false, newArrival: false, description: 'Slim fit formal trousers.' }
+    { id: 'p1', name: 'Classic White Shirt', category: 'c1', price: 1299, costPrice: 800, discountPrice: 999, stock: 50, sku: 'M-001', sizes: ['S', 'M', 'L', 'XL'], colors: ['#ffffff'], images: [], status: 'Active', featured: true, newArrival: false, description: 'A classic white shirt for men.' },
+    { id: 'p2', name: 'Denim Jacket', category: 'c1', price: 2499, costPrice: 1500, discountPrice: null, stock: 20, sku: 'M-002', sizes: ['M', 'L', 'XL'], colors: ['#1e3a8a'], images: [], status: 'Active', featured: false, newArrival: true, description: 'Stylish denim jacket.' },
+    { id: 'p3', name: 'Casual Chinos', category: 'c1', price: 1499, costPrice: 900, discountPrice: 1299, stock: 30, sku: 'M-003', sizes: ['30', '32', '34'], colors: ['#d1d5db', '#4b5563'], images: [], status: 'Active', featured: false, newArrival: false, description: 'Comfortable casual chinos.' },
+    { id: 'p4', name: 'Floral Summer Dress', category: 'c2', price: 1899, costPrice: 1200, discountPrice: null, stock: 15, sku: 'W-001', sizes: ['S', 'M', 'L'], colors: ['#fecaca', '#bfdbfe'], images: [], status: 'Active', featured: true, newArrival: true, description: 'Beautiful floral summer dress.' },
+    { id: 'p5', name: 'Elegant Saree', category: 'c4', price: 4500, costPrice: 2800, discountPrice: 3999, stock: 10, sku: 'T-001', sizes: ['Free Size'], colors: ['#dc2626', '#16a34a'], images: [], status: 'Active', featured: true, newArrival: false, description: 'Traditional elegant saree.' },
+    { id: 'p6', name: 'Kids T-Shirt Combo', category: 'c3', price: 899, costPrice: 500, discountPrice: 799, stock: 40, sku: 'K-001', sizes: ['2-3Y', '4-5Y', '6-7Y'], colors: ['#fef08a', '#93c5fd'], images: [], status: 'Active', featured: false, newArrival: true, description: 'Pack of 2 kids t-shirts.' },
+    { id: 'p7', name: 'Leather Wallet', category: 'c5', price: 599, costPrice: 300, discountPrice: null, stock: 100, sku: 'A-001', sizes: ['Free Size'], colors: ['#78350f', '#000000'], images: [], status: 'Active', featured: false, newArrival: false, description: 'Genuine leather wallet.' },
+    { id: 'p8', name: 'Silk Panjabi', category: 'c4', price: 2199, costPrice: 1400, discountPrice: 1999, stock: 25, sku: 'T-002', sizes: ['38', '40', '42', '44'], colors: ['#000000', '#1e40af'], images: [], status: 'Active', featured: true, newArrival: true, description: 'Premium silk panjabi.' },
+    { id: 'p9', name: 'Women Denim Pants', category: 'c2', price: 1599, costPrice: 900, discountPrice: null, stock: 35, sku: 'W-002', sizes: ['28', '30', '32'], colors: ['#1e3a8a', '#000000'], images: [], status: 'Active', featured: false, newArrival: false, description: 'High waist denim pants.' },
+    { id: 'p10', name: 'Kids Party Frock', category: 'c3', price: 1799, costPrice: 1100, discountPrice: 1499, stock: 12, sku: 'K-002', sizes: ['3-4Y', '5-6Y'], colors: ['#fbcfe8'], images: [], status: 'Active', featured: true, newArrival: false, description: 'Cute party frock for girls.' },
+    { id: 'p11', name: 'Sunglasses', category: 'c5', price: 499, costPrice: 200, discountPrice: 399, stock: 50, sku: 'A-002', sizes: ['Free Size'], colors: ['#000000'], images: [], status: 'Active', featured: false, newArrival: true, description: 'UV protection sunglasses.' },
+    { id: 'p12', name: 'Formal Trousers', category: 'c1', price: 1699, costPrice: 900, discountPrice: null, stock: 28, sku: 'M-004', sizes: ['30', '32', '34', '36'], colors: ['#000000', '#374151'], images: [], status: 'Active', featured: false, newArrival: false, description: 'Slim fit formal trousers.' }
 ];
 
 const seedCoupons = [
