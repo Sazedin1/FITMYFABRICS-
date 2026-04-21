@@ -88,6 +88,10 @@ const app = {
         const s = db.getSettings();
         if (s.primaryColor) document.documentElement.style.setProperty('--primary', s.primaryColor);
         if (s.accentColor) document.documentElement.style.setProperty('--accent', s.accentColor);
+        if (s.heroBannerWidth) document.documentElement.style.setProperty('--hero-w', s.heroBannerWidth);
+        if (s.heroBannerHeight) document.documentElement.style.setProperty('--hero-h', s.heroBannerHeight);
+        if (s.productImgWidth) document.documentElement.style.setProperty('--prod-img-w', s.productImgWidth);
+        if (s.productImgHeight) document.documentElement.style.setProperty('--prod-img-h', s.productImgHeight);
         
         const topBar = document.querySelector('.top-bar');
         if (topBar && s.topBarText) topBar.textContent = s.topBarText;
@@ -1356,7 +1360,7 @@ You answer questions about products, ordering, policies, etc. Format the price c
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
         try {
-            const apiKey = process.env.GEMINI_API_KEY;
+            const apiKey = (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || import.meta.env.VITE_GEMINI_API_KEY;
             
             if (!apiKey) {
                 aiMsgDiv.textContent = 'Sorry, the AI feature is currently misconfigured (API Key missing).';

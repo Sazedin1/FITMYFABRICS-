@@ -1,8 +1,11 @@
 // data.js - Shared data layer for FIT MY FABRICS
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, getDocs, setLogLevel } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
+
+// Suppress benign WebChannel transport warnings from Firebase
+setLogLevel('error');
 
 const firebaseApp = initializeApp(firebaseConfig);
 const firestore = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
@@ -38,7 +41,11 @@ const defaultSettings = {
     storeLogo: '',
     logoDisplayMode: 'logo-text',
     footerAbout: 'Wear Your Style. Premium clothing for the modern Bangladeshi.',
-    maintenanceMode: false
+    maintenanceMode: false,
+    heroBannerWidth: '100%',
+    heroBannerHeight: '400px',
+    productImgWidth: '100%',
+    productImgHeight: '200px'
 };
 
 const seedCategories = [
@@ -153,6 +160,10 @@ syncTables.forEach(table => {
         localStorage.setItem(DB_PREFIX + table, JSON.stringify(data));
         syncReadyCount++;
         checkIfAppReady();
+    }, (error) => {
+        console.warn(`Firestore sync warning for ${table}:`, error.message);
+        syncReadyCount++; // Allows app to proceed with offline/cached Data
+        checkIfAppReady();
     });
 });
 
@@ -160,6 +171,10 @@ onSnapshot(doc(firestore, 'system', 'settings'), (docSnap) => {
     if (docSnap.exists()) {
         localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(docSnap.data()));
     }
+    syncReadyCount++;
+    checkIfAppReady();
+}, (error) => {
+    console.warn(`Firestore sync warning for settings:`, error.message);
     syncReadyCount++;
     checkIfAppReady();
 });

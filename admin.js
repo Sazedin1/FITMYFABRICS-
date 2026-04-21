@@ -876,11 +876,33 @@ const adminApp = {
                         <label>Hero Subheadline</label>
                         <input type="text" id="a-hero-sub" value="${s.heroSubheadline || 'Discover the latest trends in Bangladeshi fashion.'}">
                     </div>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="mt-1 form-group">
+                        <div style="flex:1;">
+                            <label>Hero Banner Width</label>
+                            <input type="text" id="a-hero-width" value="${s.heroBannerWidth || '100%'}" placeholder="e.g. 100%, 1200px">
+                        </div>
+                        <div style="flex:1;">
+                            <label>Hero Banner Height</label>
+                            <input type="text" id="a-hero-height" value="${s.heroBannerHeight || '400px'}" placeholder="e.g. 400px, 50vh">
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label>Hero Background Image</label>
                         <input type="file" id="a-hero-img" accept="image/*" onchange="adminApp.handleAppImage(event, 'hero', 'a-hero-preview')">
                         <div id="a-hero-preview" class="image-preview-area">
                             ${s.heroImage ? `<div class="img-preview-box"><img src="${s.heroImage}"><button type="button" class="remove-img-btn" onclick="adminApp.removeAppImage('hero', 'a-hero-preview')">&times;</button></div>` : ''}
+                        </div>
+                    </div>
+
+                    <h3 class="mt-2">Product Images</h3>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="mt-1 form-group">
+                        <div style="flex:1;">
+                            <label>Product Image Width</label>
+                            <input type="text" id="a-product-width" value="${s.productImgWidth || '100%'}" placeholder="e.g. 100%, 300px">
+                        </div>
+                        <div style="flex:1;">
+                            <label>Product Image Height</label>
+                            <input type="text" id="a-product-height" value="${s.productImgHeight || '200px'}" placeholder="e.g. 200px, 300px">
                         </div>
                     </div>
 
@@ -906,6 +928,11 @@ const adminApp = {
         settings.heroSubheadline = document.getElementById('a-hero-sub').value;
         settings.footerAbout = document.getElementById('a-footer-about').value;
         
+        settings.heroBannerWidth = document.getElementById('a-hero-width').value;
+        settings.heroBannerHeight = document.getElementById('a-hero-height').value;
+        settings.productImgWidth = document.getElementById('a-product-width').value;
+        settings.productImgHeight = document.getElementById('a-product-height').value;
+
         settings.heroImage = this.tempAppearance.hero;
         settings.storeLogo = this.tempAppearance.logo;
         settings.logoDisplayMode = document.getElementById('a-logo-mode').value;
@@ -916,6 +943,10 @@ const adminApp = {
         // Update admin colors too
         document.documentElement.style.setProperty('--primary', settings.primaryColor);
         document.documentElement.style.setProperty('--accent', settings.accentColor);
+        document.documentElement.style.setProperty('--hero-w', settings.heroBannerWidth);
+        document.documentElement.style.setProperty('--hero-h', settings.heroBannerHeight);
+        document.documentElement.style.setProperty('--prod-img-w', settings.productImgWidth);
+        document.documentElement.style.setProperty('--prod-img-h', settings.productImgHeight);
     },
 
     // --- Settings ---

@@ -262,13 +262,15 @@ input:focus, select:focus, textarea:focus {
 
 /* Hero Section */
 .hero {
-    height: 80vh;
+    height: var(--hero-h, 80vh);
+    width: var(--hero-w, 100%);
     background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><rect width="100%" height="100%" fill="%231a1a1a"/></svg>') center/cover;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     color: var(--white);
+    margin: 0 auto;
 }
 
 .hero h1 {
@@ -314,15 +316,14 @@ input:focus, select:focus, textarea:focus {
 
 .product-img-wrap {
     position: relative;
-    padding-top: 125%; /* 4:5 aspect ratio */
+    /* Removed padding-top aspect ratio hack */
+    width: var(--prod-img-w, 100%);
+    height: var(--prod-img-h, 300px); /* fallback if not aspect-ratio based */
     background: var(--bg-light);
     overflow: hidden;
 }
 
 .product-img {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
