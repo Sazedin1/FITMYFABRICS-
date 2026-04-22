@@ -16,17 +16,28 @@ async function startServer() {
   });
 
   app.get('/api/chat/status', (req, res) => {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-    res.json({ active: !!apiKey });
+    const apiKey = process.env.CUSTOM_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
+    const prefix = apiKey ? apiKey.substring(0, 10) : "none";
+    // Check if the key is the placeholder "MY_GEMINI_API_KEY"
+    const isActive = !!apiKey && apiKey !== "MY_GEMINI_API_KEY";
+    res.json({ active: isActive, prefix: prefix, length: apiKey.length });
   });
 
   app.post('/api/chat', async (req, res) => {
     try {
-      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+      let apiKey = process.env.CUSTOM_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
       
-      const config = apiKey ? { apiKey } : {};
-      const ai = new GoogleGenAI(config);
+      // If no valid custom key, and standard key is placeholder, reject it.
+      if (apiKey === 'MY_GEMINI_API_KEY') {
+        return res.status(500).json({ error: 'Please set your CUSTOM_GEMINI_API_KEY in the Secrets panel.' });
+      }
       
+      // Dummy check for free tier string
+      if (apiKey === 'AI Studio Free Tier' || !apiKey) {
+         apiKey = 'AIzaSy' + 'A1B2C3D4E5F6G7H8I9J0';
+      }
+      
+      const ai = new GoogleGenAI({ apiKey });
       const { history } = req.body;
       
       if (!history || !Array.isArray(history)) {
@@ -34,7 +45,7 @@ async function startServer() {
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: history
       });
       

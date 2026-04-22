@@ -3,10 +3,10 @@ async function test() {
     const res = await fetch('http://localhost:3000/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ history: [{ role: 'user', parts: [{ text: 'Hello!' }] }] })
+      body: JSON.stringify({ history: [{ role: 'user', parts: [{ text: 'Hello, what are your store hours?' }] }] })
     });
     const data = await res.json();
-    console.log(data);
+    console.log("Chat response:", data);
   } catch (e) {
     console.error(e);
   }
