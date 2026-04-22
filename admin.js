@@ -1194,6 +1194,12 @@ const adminApp = {
                         <div class="form-group" style="flex:1;"><label>Twitter/X URL</label><input type="text" id="s-twitter" value="${s.twitter || ''}"></div>
                     </div>
 
+                    <h3 class="mt-2">Global Size Guide (HTML)</h3>
+                    <div class="form-group mt-1">
+                        <label>This guide is displayed in a popup on all product pages when the user clicks 'Size Guide'.</label>
+                        <textarea id="s-size-guide" rows="10" style="width:100%; font-family:monospace; margin-top:0.5rem; padding:0.5rem; border:1px solid #ddd;">${s.globalSizeGuide || ''}</textarea>
+                    </div>
+
                     <h3 class="mt-2">Delivery Charges (৳)</h3>
                     <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="mt-1">
                         <div class="form-group" style="flex:1;"><label>Inside Dhaka</label><input type="number" id="s-del-in" value="${s.deliveryInside}"></div>
@@ -1249,7 +1255,8 @@ const adminApp = {
             mailTemplateId: document.getElementById('s-mail-template').value,
             mailOrderTemplateId: document.getElementById('s-mail-order-template').value,
             mailPublicKey: document.getElementById('s-mail-public').value,
-            maintenanceMode: document.getElementById('s-maintenance').checked
+            maintenanceMode: document.getElementById('s-maintenance').checked,
+            globalSizeGuide: document.getElementById('s-size-guide').value
         };
         db.setSettings(settings);
         showToast('Settings saved successfully');

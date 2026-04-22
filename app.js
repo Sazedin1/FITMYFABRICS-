@@ -69,6 +69,9 @@ const app = {
             case 'track':
                 content.innerHTML = this.renderTrackOrder();
                 break;
+            case 'policy':
+                content.innerHTML = this.renderPolicy(params.type);
+                break;
             case 'account':
                 content.innerHTML = this.renderAccount();
                 break;
@@ -311,7 +314,10 @@ const app = {
                         </div>
                         
                         <div class="form-group" style="${product.sizes && product.sizes.length > 0 ? '' : 'display:none;'}">
-                            <label>Size</label>
+                            <label style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Size</span>
+                                ${db.getSettings().globalSizeGuide ? `<a href="javascript:void(0)" onclick="app.openSizeGuide()" style="color:var(--primary); font-size:0.875rem; text-decoration:underline;">Size Guide</a>` : ''}
+                            </label>
                             <select id="pd-size">
                                 ${product.sizes ? product.sizes.map(s => {
                                     const stockCount = (product.sizeStock && typeof product.sizeStock[s] !== 'undefined') ? product.sizeStock[s] : -1;
@@ -542,6 +548,76 @@ const app = {
         `;
     },
 
+    renderPolicy(type) {
+        let title = '';
+        let content = '';
+
+        if (type === 'privacy') {
+            title = 'Privacy Policy';
+            content = `
+                <p><strong>Effective Date:</strong> April 22, 2026</p>
+                <p>At <strong>FIT MY FABRICS</strong>, we respect your privacy and are committed to protecting your personal data. This policy explains how we handle your information.</p>
+                <ul>
+                    <li><strong>Information We Collect:</strong> When you place an order, we collect your name, shipping address, phone number, and email address to process the delivery.</li>
+                    <li><strong>How We Use Your Data:</strong> Your information is used strictly for order fulfillment, customer support, and sending updates regarding your purchase.</li>
+                    <li><strong>Data Security:</strong> We implement industry-standard security measures (SSL) to ensure your data remains safe. We do not store your credit card or mobile banking (bKash/Nagad) credentials; these are handled securely by our payment gateway providers.</li>
+                    <li><strong>Third-Party Disclosure:</strong> We only share your name, address, and phone number with our trusted courier partners to ensure your products reach you.</li>
+                    <li><strong>Cookies:</strong> Our website uses cookies to enhance your browsing experience and analyze site traffic.</li>
+                </ul>
+            `;
+        } else if (type === 'terms') {
+            title = 'Terms and Conditions';
+            content = `
+                <p><strong>Effective Date:</strong> April 22, 2026</p>
+                <p>By accessing and using the <strong>FIT MY FABRICS</strong> website, you agree to comply with the following terms:</p>
+                <ul>
+                    <li><strong>Product Accuracy:</strong> We strive to display the colors and textures of our apparel as accurately as possible. However, actual colors may vary slightly due to monitor settings or photographic lighting.</li>
+                    <li><strong>Pricing:</strong> All prices are listed in BDT (Bangladeshi Taka). We reserve the right to change prices without prior notice, but confirmed orders will be honored at the original price.</li>
+                    <li><strong>Ordering & Payment:</strong> An order is considered confirmed once payment (Full or partial as per policy) is verified. For Cash on Delivery (COD), customers must confirm their order via phone if required.</li>
+                    <li><strong>Intellectual Property:</strong> All content on this site, including logos, designs, and images, is the property of <strong>FIT MY FABRICS</strong>. Unauthorized use is strictly prohibited.</li>
+                    <li><strong>Liability:</strong> We are not liable for any delays caused by courier services or natural disasters.</li>
+                </ul>
+
+                <h3 style="margin-top: 2rem;">Account Creation - Terms & Conditions</h3>
+                <p>By creating an account on FIT MY FABRICS, you agree to the following:</p>
+                <ul>
+                    <li><strong>Accuracy of Information:</strong> You provide accurate, current, and complete information during the registration process and keep it updated.</li>
+                    <li><strong>Account Security:</strong> You are responsible for maintaining the confidentiality of your password and account. Any activity under your account is your responsibility.</li>
+                    <li><strong>User Conduct:</strong> You will not use this website for any fraudulent or unlawful activities, including unauthorized access or interfering with the site’s functionality.</li>
+                    <li><strong>Age Requirement:</strong> By registering, you confirm that you are at least 18 years old or browsing under the supervision of a parent or guardian.</li>
+                    <li><strong>Communication:</strong> By creating an account, you agree to receive order updates, newsletters, and promotional emails from us (you can unsubscribe anytime).</li>
+                    <li><strong>Account Termination:</strong> We reserve the right to suspend or terminate accounts that violate our terms or engage in suspicious activities.</li>
+                </ul>
+            `;
+        } else if (type === 'returns') {
+            title = 'Return & Refund Policy';
+            content = `
+                <ul>
+                    <li><strong>Return Period:</strong> Customers can request a return or exchange within delivery day of the product.</li>
+                    <li><strong>Conditions for Return:</strong> The item must be unworn, unwashed, and in its original packaging with tags intact. Returns are accepted if the product is damaged, defective, or if the wrong size/item was sent.</li>
+                    <li><strong>Refund Process:</strong> Once we receive and inspect the returned item, refunds will be processed via the original payment method (bKash/Bank) within <strong>5-7 working days</strong>.</li>
+                    <li><strong>Delivery Charges:</strong> If the return is due to our mistake, we bear the shipping cost. For general exchanges (change of mind), the customer is responsible for shipping fees.</li>
+                </ul>
+            `;
+        }
+
+        return `
+            <div class="container mt-2 mb-2">
+                <style>
+                    .policy-container p { margin-bottom: 1rem; line-height: 1.6; }
+                    .policy-container ul { margin-left: 1.5rem; margin-bottom: 1rem; }
+                    .policy-container li { margin-bottom: 0.5rem; line-height: 1.6; }
+                </style>
+                <div style="max-width: 800px; margin: 0 auto; background: var(--white); padding: 2rem; border-radius: 8px;">
+                    <h1 style="margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">${title}</h1>
+                    <div class="policy-container text-gray-700">
+                        ${content}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     // --- Logic ---
 
     checkAuth() {
@@ -570,6 +646,14 @@ const app = {
 
     closeModal(id) {
         document.getElementById(id).classList.remove('active');
+    },
+
+    openSizeGuide() {
+        const guideHtml = db.getSettings().globalSizeGuide;
+        if(guideHtml) {
+            document.getElementById('size-guide-content').innerHTML = guideHtml;
+            document.getElementById('size-guide-modal').classList.add('active');
+        }
     },
 
     switchAuthTab(tab) {

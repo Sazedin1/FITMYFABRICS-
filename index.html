@@ -116,6 +116,12 @@
                     <label>Password</label>
                     <input type="password" id="reg-password" required minlength="6">
                 </div>
+                <div class="form-group" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: normal; color: var(--text-light);">
+                        <input type="checkbox" id="reg-terms-aggreement" required style="margin-top: 0.25rem;">
+                        <span>I agree to the <a href="#" onclick="app.closeModal('auth-modal'); app.navigate('policy', {type: 'terms'})" style="color:var(--primary); text-decoration:underline;">Terms & Conditions</a> and <a href="#" onclick="app.closeModal('auth-modal'); app.navigate('policy', {type: 'privacy'})" style="color:var(--primary); text-decoration:underline;">Privacy Policy</a>.</span>
+                    </label>
+                </div>
                 <button type="submit" class="btn btn-primary" style="width:100%;">Create Account</button>
             </form>
         </div>
@@ -165,6 +171,17 @@
         </div>
     </div>
 
+    <!-- Size Guide Modal -->
+    <div id="size-guide-modal" class="modal-overlay" onclick="if(event.target===this) app.closeModal('size-guide-modal')">
+        <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+            <button class="modal-close" onclick="app.closeModal('size-guide-modal')">&times;</button>
+            <h2 style="margin-bottom: 1rem;">Size Guide</h2>
+            <div id="size-guide-content">
+                <!-- Injected via JS from settings -->
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content Area -->
     <main id="app-content">
         <!-- Content injected by JS -->
@@ -203,6 +220,14 @@
             <div>
                 <h3 id="footer-store-name" style="color: var(--accent); margin-bottom: 1rem;">FIT MY FABRICS</h3>
                 <p id="footer-about" style="color: #ccc;">Wear Your Style. Premium clothing for the modern Bangladeshi.</p>
+            </div>
+            <div>
+                <h4 style="color: var(--white); margin-bottom: 1rem;">Customer Service</h4>
+                <ul style="color: #ccc; line-height: 2;">
+                    <li><a href="#" onclick="app.navigate('policy', {type: 'returns'})">Return & Refund Policy</a></li>
+                    <li><a href="#" onclick="app.navigate('policy', {type: 'terms'})">Terms & Conditions</a></li>
+                    <li><a href="#" onclick="app.navigate('policy', {type: 'privacy'})">Privacy Policy</a></li>
+                </ul>
             </div>
             <div>
                 <h4 style="color: var(--white); margin-bottom: 1rem;">Quick Links</h4>

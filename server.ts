@@ -52,7 +52,24 @@ async function startServer() {
       res.json({ text: response.text });
     } catch (error: any) {
       console.error('Chat error:', error);
-      res.status(500).json({ error: error.message || 'Sorry, I am having trouble connecting right now.' });
+      
+      // Look for 503 or overload errors specifically
+      let userMessage = 'Sorry, I am having trouble connecting right now.';
+      if (error?.message?.includes('503') || error?.message?.includes('high demand') || error?.status === 'UNAVAILABLE') {
+        userMessage = 'The AI is currently experiencing very high demand and is temporarily unavailable. Please try again in a few moments!';
+      } else if (error?.message) {
+         // Prevent sending ugly raw JSON stringified errors directly to UI
+         try {
+           const parsed = JSON.parse(error.message);
+           if (parsed.error && parsed.error.message) {
+               userMessage = parsed.error.message;
+           }
+         } catch(e) {
+           userMessage = error.message;
+         }
+      }
+      
+      res.status(500).json({ error: userMessage });
     }
   });
 

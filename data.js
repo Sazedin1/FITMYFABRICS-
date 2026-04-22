@@ -51,7 +51,27 @@ const defaultSettings = {
     heroBannerWidth: '100%',
     heroBannerHeight: '400px',
     productImgWidth: '100%',
-    productImgHeight: '200px'
+    productImgHeight: '200px',
+    globalSizeGuide: `<h4>Round Neck T-Shirt Size Chart (Inches)</h4>
+<p>Round neck t-shirts are often designed with a "Regular Fit." If you are looking for a "Slim Fit," the chest measurements are usually reduced by 1 inch.</p>
+<table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; margin-bottom:1rem; text-align:center;">
+    <tr><th>Size</th><th>Chest (Width)</th><th>Length</th><th>Sleeve Length</th></tr>
+    <tr><td>M</td><td>38"</td><td>27"</td><td>7.5"</td></tr>
+    <tr><td>L</td><td>40"</td><td>28"</td><td>8"</td></tr>
+    <tr><td>XL</td><td>42"</td><td>29"</td><td>8.5"</td></tr>
+    <tr><td>XXL</td><td>44"</td><td>30"</td><td>9"</td></tr>
+</table>
+<h4>Polo T-Shirt Size Chart (Inches)</h4>
+<p>Polo shirts generally use a slightly heavier fabric (like Lacoste or Pique) and have a more structured fit compared to round necks.</p>
+<table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; margin-bottom:1rem; text-align:center;">
+    <tr><th>Size</th><th>Chest (Width)</th><th>Length</th><th>Shoulder</th></tr>
+    <tr><td>M</td><td>39"</td><td>27.5"</td><td>17.5"</td></tr>
+    <tr><td>L</td><td>41"</td><td>28.5"</td><td>18.5"</td></tr>
+    <tr><td>XL</td><td>43"</td><td>29.5"</td><td>19.5"</td></tr>
+    <tr><td>XXL</td><td>45"</td><td>30.5"</td><td>20.5"</td></tr>
+</table>
+<h4>Key Considerations for Local Production</h4>
+<p>Tolerance (garments sector), a +/- 0.5 inch tolerance is standard.</p>`
 };
 
 const seedCategories = [
@@ -84,8 +104,14 @@ const seedCoupons = [
 
 // Initialize DB
 function initDB() {
-    if (!localStorage.getItem(DB_PREFIX + 'settings')) {
-        localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(defaultSettings));
+    let settings = JSON.parse(localStorage.getItem(DB_PREFIX + 'settings'));
+    if (!settings) {
+        settings = defaultSettings;
+        localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(settings));
+    } else if (typeof settings.globalSizeGuide === 'undefined') {
+        settings.globalSizeGuide = defaultSettings.globalSizeGuide;
+        localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(settings));
+        // We also want to push this to firestore if app is initialized, but doing it via setDoc is cleaner below
     }
     if (!localStorage.getItem(DB_PREFIX + 'categories')) {
         localStorage.setItem(DB_PREFIX + 'categories', JSON.stringify(seedCategories));
@@ -190,6 +216,14 @@ function checkIfAppReady() {
     // Wait until all 7 collections + 1 settings document are synced at least once
     if (syncReadyCount >= 8 && !isAppInitialized) {
         isAppInitialized = true;
+        
+        // Ensure size guide migration pushes to Firebase
+        const currentSettings = db.getSettings();
+        if (typeof currentSettings.globalSizeGuide === 'undefined') {
+            currentSettings.globalSizeGuide = defaultSettings.globalSizeGuide;
+            db.setSettings(currentSettings);
+        }
+
         if (window.app && window.app.init) window.app.init();
         if (window.adminApp && window.adminApp.init) window.adminApp.init();
     } else if (isAppInitialized) {
