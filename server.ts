@@ -28,16 +28,6 @@ async function startServer() {
     try {
       let apiKey = process.env.CUSTOM_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
       
-      // If no valid custom key, and standard key is placeholder, reject it.
-      if (apiKey === 'MY_GEMINI_API_KEY') {
-        return res.status(500).json({ error: 'Please set your CUSTOM_GEMINI_API_KEY in the Secrets panel.' });
-      }
-      
-      // Dummy check for free tier string
-      if (apiKey === 'AI Studio Free Tier' || !apiKey) {
-         apiKey = 'AIzaSy' + 'A1B2C3D4E5F6G7H8I9J0';
-      }
-      
       const ai = new GoogleGenAI({ apiKey });
       const { history } = req.body;
       

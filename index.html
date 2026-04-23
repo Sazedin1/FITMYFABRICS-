@@ -82,7 +82,12 @@
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="login-password" required>
+                    <div style="position: relative;">
+                        <input type="password" id="login-password" required style="padding-right: 40px; width: 100%;">
+                        <button type="button" onclick="const p = document.getElementById('login-password'); p.type = p.type === 'password' ? 'text' : 'password';" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-light);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    </div>
                 </div>
                 <div style="text-align:right; margin-bottom:1rem;">
                     <a href="#" style="font-size:0.875rem; color:var(--accent);" onclick="app.showForgotPassword()">Forgot Password?</a>
@@ -122,7 +127,12 @@
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="reg-password" required minlength="6">
+                    <div style="position: relative;">
+                        <input type="password" id="reg-password" required minlength="6" style="padding-right: 40px; width: 100%;">
+                        <button type="button" onclick="const p = document.getElementById('reg-password'); p.type = p.type === 'password' ? 'text' : 'password';" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-light);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group" style="margin-top: 1rem; margin-bottom: 1.5rem;">
                     <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: normal; color: var(--text-light);">
@@ -172,7 +182,12 @@
             <form onsubmit="app.resetPassword(event)">
                 <div class="form-group">
                     <label>New Password</label>
-                    <input type="password" id="new-password" required minlength="6">
+                    <div style="position: relative;">
+                        <input type="password" id="new-password" required minlength="6" style="padding-right: 40px; width: 100%;">
+                        <button type="button" onclick="const p = document.getElementById('new-password'); p.type = p.type === 'password' ? 'text' : 'password';" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-light);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width:100%;">Update Password</button>
             </form>

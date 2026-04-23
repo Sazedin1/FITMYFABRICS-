@@ -1349,7 +1349,12 @@ const adminApp = {
             <div class="card mt-2">
                 <h3>Master Admin Password</h3>
                 <div class="form-group mt-1">
-                    <input type="password" id="master-pwd" placeholder="Enter new master password" value="${settings.masterPassword || 'Sagor22777@'}">
+                    <div style="position: relative; max-width: 300px;">
+                        <input type="password" id="master-pwd" placeholder="Enter new master password" value="${settings.masterPassword || 'Sagor22777@'}" style="padding-right: 40px; width: 100%;">
+                        <button type="button" onclick="const p = document.getElementById('master-pwd'); p.type = p.type === 'password' ? 'text' : 'password';" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-light);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    </div>
                 </div>
                 <button class="btn" style="background:var(--accent);" onclick="adminApp.saveMasterPassword()">Update Master Password</button>
             </div>
@@ -1398,7 +1403,12 @@ const adminApp = {
                         </div>
                         <div class="form-group">
                             <label>Password</label>
-                            <input type="text" id="staff-pwd" required>
+                            <div style="position: relative;">
+                                <input type="password" id="staff-pwd" required style="padding-right: 40px; width: 100%;">
+                                <button type="button" onclick="const p = document.getElementById('staff-pwd'); p.type = p.type === 'password' ? 'text' : 'password';" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-light);">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Access Areas</label>
