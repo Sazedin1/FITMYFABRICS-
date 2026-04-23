@@ -845,3 +845,21 @@ input:focus, select:focus, textarea:focus {
 .ai-chat-input-area input:focus {
     border-color: var(--primary);
 }
+
+/* Footer Social Icons */
+#footer-social {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+#footer-social a {
+    transition: transform 0.2s ease, color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+#footer-social a:hover {
+    color: var(--white) !important;
+    transform: translateY(-2px);
+}
+
