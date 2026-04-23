@@ -18,8 +18,9 @@ async function startServer() {
   app.get('/api/chat/status', (req, res) => {
     const apiKey = process.env.CUSTOM_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
     const prefix = apiKey ? apiKey.substring(0, 10) : "none";
-    // Check if the key is the placeholder "MY_GEMINI_API_KEY"
-    const isActive = !!apiKey && apiKey !== "MY_GEMINI_API_KEY";
+    // Ensure chat stays active even if key is empty, so proxy can intercept.
+    // Only hide if the key specifically matches the broken placeholder template string.
+    const isActive = apiKey !== "MY_GEMINI_API_KEY";
     res.json({ active: isActive, prefix: prefix, length: apiKey.length });
   });
 
