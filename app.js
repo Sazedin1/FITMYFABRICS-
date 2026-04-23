@@ -30,14 +30,11 @@ const app = {
         try {
             const chatRes = await fetch('/api/chat/status');
             const data = await chatRes.json();
-            if (!data.active) {
-                const chatWidget = document.getElementById('ai-chat-widget');
-                if (chatWidget) chatWidget.style.display = 'none';
-            }
+            // We purposely do NOT hide the widget here anymore.
+            // Let the user open it and see any connection errors visually in the chat UI,
+            // rather than the icon mysteriously disappearing.
         } catch (e) {
             console.error('Chat status check failed:', e);
-            const chatWidget = document.getElementById('ai-chat-widget');
-            if (chatWidget) chatWidget.style.display = 'none';
         }
     },
 
