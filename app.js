@@ -13,10 +13,6 @@ const app = {
     
     async init() {
         const s = db.getSettings();
-        if (s.maintenanceMode) {
-            document.body.innerHTML = this.renderMaintenance(s);
-            return;
-        }
         
         this.applyAppearance();
         this.checkAuth();
@@ -24,6 +20,13 @@ const app = {
         this.updateWishlistCount();
         this.populateFooter();
         this.renderCart();
+        
+        if (s.maintenanceMode) {
+            document.getElementById('app-content').innerHTML = this.renderMaintenance(s);
+            document.getElementById('current-year').textContent = new Date().getFullYear();
+            return;
+        }
+
         this.navigate('home');
         document.getElementById('current-year').textContent = new Date().getFullYear();
         
@@ -39,10 +42,17 @@ const app = {
     },
 
     navigate(page, params = {}) {
-        this.currentPage = page;
-        this.currentParams = params;
+        const s = db.getSettings();
         const content = document.getElementById('app-content');
         window.scrollTo(0, 0);
+
+        if (s.maintenanceMode) {
+            content.innerHTML = this.renderMaintenance(s);
+            return;
+        }
+
+        this.currentPage = page;
+        this.currentParams = params;
 
         switch(page) {
             case 'home':
@@ -84,9 +94,16 @@ const app = {
 
     renderMaintenance(s) {
         const logoText = s.storeName || 'FIT MY FABRICS';
+        const heroBg = s.heroImage ? `url(${s.heroImage})` : 'none';
         return `
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:2rem; background:var(--bg-light); color:var(--text-dark); font-family:var(--font-body);">
-                <h1 style="font-family:var(--font-heading); color:var(--primary); font-size:3rem; margin-bottom:1rem;">${logoText}</h1>
+            <section class="hero" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.3)), ${heroBg} center/cover; background-color: var(--primary);">
+                <div class="container" style="text-align: center; max-width: 800px; margin: 0 auto;">
+                    <h1 style="font-size: 3.5rem; letter-spacing: 2px; margin-bottom: 1.5rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); line-height: 1.2;">${s.heroHeadline || 'Wear Your Style'}</h1>
+                    <p style="font-size: 1.2rem; margin-bottom: 2.5rem; text-shadow: 0 1px 2px rgba(0,0,0,0.3); font-weight: 300;">${s.heroSubheadline || 'Discover the latest trends in fashion. Quality fabrics, modern fits.'}</p>
+                </div>
+            </section>
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:5rem 2rem; background:var(--bg-light); color:var(--text-dark); font-family:var(--font-body);">
+                <h1 style="font-family:var(--font-heading); color:var(--primary); font-size:2rem; margin-bottom:1rem;">${logoText}</h1>
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:2rem;">
                     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
                     <circle cx="12" cy="12" r="3"></circle>
@@ -123,17 +140,6 @@ const app = {
             } else {
                 logoText.innerHTML = `${logoImg} <span>${name}</span>`;
             }
-        }
-        
-        // Update footer social links
-        const socialContainer = document.getElementById('footer-social');
-        if (socialContainer) {
-            let socialHtml = '';
-            if (s.socialFb) socialHtml += `<a href="${s.socialFb}" target="_blank" style="color:var(--white);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg></a>`;
-            if (s.socialIg) socialHtml += `<a href="${s.socialIg}" target="_blank" style="color:var(--white);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg></a>`;
-            if (s.socialTt) socialHtml += `<a href="${s.socialTt}" target="_blank" style="color:var(--white);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path></svg></a>`;
-            if (s.socialYt) socialHtml += `<a href="${s.socialYt}" target="_blank" style="color:var(--white);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33 2.78 2.78 0 0 0 1.94 2c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg></a>`;
-            socialContainer.innerHTML = socialHtml;
         }
         
         // Update footer text
@@ -726,9 +732,12 @@ const app = {
     },
 
     openSizeGuide() {
-        const guideHtml = db.getSettings().globalSizeGuide;
-        if(guideHtml) {
-            document.getElementById('size-guide-content').innerHTML = guideHtml;
+        const guideText = db.getSettings().globalSizeGuide;
+        if(guideText) {
+            const contentEl = document.getElementById('size-guide-content');
+            contentEl.textContent = guideText;
+            contentEl.style.whiteSpace = 'pre-line';
+            contentEl.style.lineHeight = '1.6';
             document.getElementById('size-guide-modal').classList.add('active');
         }
     },
