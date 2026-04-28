@@ -29,15 +29,16 @@ async function startServer() {
       let apiKey = process.env.CUSTOM_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
       
       const ai = new GoogleGenAI({ apiKey });
-      const { history } = req.body;
+      const { history, systemInstruction } = req.body;
       
       if (!history || !Array.isArray(history)) {
         return res.status(400).json({ error: 'Invalid chat history' });
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: history
+        model: 'gemini-3.1-pro-preview',
+        contents: history,
+        config: systemInstruction ? { systemInstruction } : undefined
       });
       
       res.json({ text: response.text });
@@ -48,6 +49,8 @@ async function startServer() {
       let userMessage = 'Sorry, I am having trouble connecting right now.';
       if (error?.message?.includes('503') || error?.message?.includes('high demand') || error?.status === 'UNAVAILABLE') {
         userMessage = 'The AI is currently experiencing very high demand and is temporarily unavailable. Please try again in a few moments!';
+      } else if (error?.status === 400 || error?.message?.includes('API key')) {
+        userMessage = 'API Configuration Error: Please ensure you have a valid API Key and try again.';
       } else if (error?.message) {
          // Prevent sending ugly raw JSON stringified errors directly to UI
          try {
