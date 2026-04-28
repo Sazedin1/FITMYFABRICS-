@@ -147,9 +147,14 @@ const app = {
         if (footerAbout && s.footerAbout) footerAbout.textContent = s.footerAbout;
     },
 
+    getActiveProducts() {
+        const activeCategories = db.get('categories').filter(c => c.status === 'Active' && !c.comingSoon).map(c => c.id);
+        return db.get('products').filter(p => p.status === 'Active' && activeCategories.includes(p.category));
+    },
+
     renderHome() {
         const s = db.getSettings();
-        const products = db.get('products').filter(p => p.status === 'Active');
+        const products = this.getActiveProducts();
         const featured = products.filter(p => p.featured).slice(0, 4);
         const newArrivals = products.filter(p => p.newArrival).slice(0, 8);
         const sale = products.filter(p => p.discountPrice).slice(0, 4);
@@ -250,7 +255,10 @@ const app = {
                     isComingSoon = true;
                 }
             }
+        } else {
+            products = this.getActiveProducts();
         }
+
         if (params.filter === 'new') {
             products = products.filter(p => p.newArrival);
             title = 'New Arrivals';
@@ -1089,7 +1097,7 @@ const app = {
         }
         
         const q = query.toLowerCase();
-        const products = db.get('products').filter(p => p.status === 'Active' && p.name.toLowerCase().includes(q));
+        const products = this.getActiveProducts().filter(p => p.name.toLowerCase().includes(q));
         
         resultsContainer.innerHTML = products.map(p => `
             <div style="display:flex; gap:1rem; margin-bottom:1rem; cursor:pointer;" onclick="app.toggleSearch(); app.navigate('product', {id:'${p.id}'})">
