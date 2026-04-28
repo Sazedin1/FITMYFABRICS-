@@ -253,6 +253,14 @@
                 </ul>
             </div>
             <div>
+                <h4 style="color: var(--white); margin-bottom: 1rem;">Newsletter</h4>
+                <p style="color: #ccc; margin-bottom: 1rem; line-height: 1.5; font-size: 0.9rem;">Subscribe to get special offers, free giveaways, and once-in-a-lifetime deals.</p>
+                <form id="newsletter-form" onsubmit="event.preventDefault(); showToast('Thanks for subscribing!', 'success'); this.reset();" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <input type="email" placeholder="Enter your email" required style="padding: 0.5rem 1rem; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white; border-radius: 4px; flex: 1; min-width: 0;">
+                    <button type="submit" class="btn btn-accent" style="padding: 0.5rem 1rem;">Subscribe</button>
+                </form>
+            </div>
+            <div>
                 <h4 style="color: var(--white); margin-bottom: 1rem;">Quick Links</h4>
                 <ul style="color: #ccc; line-height: 2;">
                     <li><a href="#" onclick="app.navigate('shop')">Shop All</a></li>
@@ -277,6 +285,13 @@
             &copy; <span id="current-year"></span> FIT MY FABRICS. All rights reserved.
         </div>
     </footer>
+
+    <!-- Floating WhatsApp -->
+    <a href="#" id="floating-whatsapp" target="_blank" class="floating-whatsapp hidden" title="Chat with us on WhatsApp">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+        </svg>
+    </a>
 
     <!-- Chatbot UI -->
     <div id="ai-chat-widget" class="ai-chat-widget">

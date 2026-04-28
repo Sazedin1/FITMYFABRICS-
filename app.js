@@ -152,48 +152,63 @@ const app = {
         const heroBg = s.heroImage ? `url(${s.heroImage})` : 'none';
 
         return `
-            <section class="hero" style="background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), ${heroBg} center/cover; background-color: var(--primary);">
-                <div class="container">
-                    <h1>${s.heroHeadline || 'Wear Your Style'}</h1>
-                    <p>${s.heroSubheadline || 'Discover the latest trends in Bangladeshi fashion.'}</p>
-                    <button class="btn btn-accent" onclick="app.navigate('shop')">Shop Now</button>
-                    <button class="btn btn-outline" style="color:white; border-color:white;" onclick="app.navigate('shop', {filter:'new'})">New Arrivals</button>
+            <section class="hero" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.3)), ${heroBg} center/cover; background-color: var(--primary);">
+                <div class="container" style="text-align: center; max-width: 800px; margin: 0 auto;">
+                    <h1 style="font-size: 3.5rem; letter-spacing: 2px; margin-bottom: 1.5rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); line-height: 1.2;">${s.heroHeadline || 'Wear Your Style'}</h1>
+                    <p style="font-size: 1.2rem; margin-bottom: 2.5rem; text-shadow: 0 1px 2px rgba(0,0,0,0.3); font-weight: 300;">${s.heroSubheadline || 'Discover the latest trends in fashion. Quality fabrics, modern fits.'}</p>
+                    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                        <button class="btn btn-accent" style="padding: 1rem 2rem; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; min-width: 180px;" onclick="app.navigate('shop')">Shop Now</button>
+                        <button class="btn btn-outline" style="color:white; border-color:white; padding: 1rem 2rem; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; min-width: 180px;" onclick="app.navigate('shop', {filter:'new'})">New Arrivals</button>
+                    </div>
                 </div>
             </section>
 
-            <div style="background: var(--primary); color: var(--accent); padding: 1rem 0; text-align: center; font-weight: 500; font-size: 0.875rem; letter-spacing: 1px;">
-                FREE DELIVERY | EASY RETURNS | CASH ON DELIVERY | 100% ORIGINAL
+            <div style="background: var(--primary); color: var(--accent); padding: 1.2rem 0; text-align: center; font-weight: 500; font-size: 0.9rem; letter-spacing: 2px; display: flex; justify-content: center; flex-wrap: wrap; gap: 2rem;">
+                <span style="display:inline-flex; align-items:center; gap:0.5rem;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg> FREE DELIVERY</span>
+                <span class="hide-mobile" style="opacity:0.3;">|</span>
+                <span style="display:inline-flex; align-items:center; gap:0.5rem;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg> EASY RETURNS</span>
+                <span class="hide-mobile" style="opacity:0.3;">|</span>
+                <span style="display:inline-flex; align-items:center; gap:0.5rem;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> CASH ON DELIVERY</span>
             </div>
 
-            <section class="container">
-                <h2 class="section-title">Shop by Category</h2>
-                <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+            <section class="container" style="margin-top: 4rem;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2rem;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Shop by Category</h2>
+                    <a href="#" onclick="app.navigate('categories')" style="color: var(--primary); font-weight: 500; text-decoration: underline;">View All</a>
+                </div>
+                <div class="product-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem;">
                     ${categories.map(c => `
-                        <div class="product-card" style="cursor:pointer;" onclick="app.navigate('shop', {category: '${c.id}'})">
-                            <div class="product-img-wrap" style="padding-top: 100%;">
-                                ${c.image ? `<img src="${c.image}" class="product-img">` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:#eee;display:flex;align-items:center;justify-content:center;color:#999;">No Image</div>`}
+                        <div class="product-card" style="box-shadow: none; background: transparent; cursor:pointer; text-align: center;" onclick="app.navigate('shop', {category: '${c.id}'})">
+                            <div style="width: 100%; aspect-ratio: 4/5; border-radius: 12px; overflow: hidden; margin-bottom: 1rem; background: #eee; position: relative;">
+                                ${c.image ? `<img src="${c.image}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;">No Image</div>`}
                             </div>
-                            <div class="product-info">
-                                <h3 class="product-title">${c.name}</h3>
-                                ${c.comingSoon ? '<span style="color:var(--text-light); font-size: 0.8rem;">Coming Soon</span>' : ''}
-                            </div>
+                            <h3 style="font-size: 1.1rem; margin-bottom: 0.25rem;">${c.name}</h3>
+                            ${c.comingSoon ? '<span style="color:var(--text-light); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">Coming Soon</span>' : `<span style="color:var(--text-light); font-size: 0.85rem;">Discover</span>`}
                         </div>
                     `).join('')}
                 </div>
             </section>
 
             ${s.showFeatured !== false ? `
-            <section class="container">
-                <h2 class="section-title">Featured Products</h2>
+            <section class="container" style="margin-top: 5rem;">
+                <h2 class="section-title">Trending Now</h2>
                 <div class="product-grid">
                     ${featured.map(p => this.renderProductCard(p)).join('')}
                 </div>
             </section>
             ` : ''}
+            
+            <section class="container" style="margin-top: 5rem; margin-bottom: 5rem;">
+                <div style="background: var(--bg-light); border-radius: 16px; padding: 4rem 2rem; text-align: center;">
+                    <h2 style="font-family: var(--font-heading); font-size: 2.5rem; margin-bottom: 1rem;">Elevate Your Everyday</h2>
+                    <p style="color: var(--text-light); font-size: 1.1rem; max-width: 600px; margin: 0 auto 2rem;">Designed for comfort, crafted for style. Explore our premium basics that form the foundation of every great wardrobe.</p>
+                    <button class="btn btn-primary" onclick="app.navigate('shop')" style="padding: 1rem 2rem; text-transform: uppercase; letter-spacing: 1px;">Explore Collection</button>
+                </div>
+            </section>
 
             ${s.showNewArrivals !== false ? `
             <section class="container">
-                <h2 class="section-title">New Arrivals</h2>
+                <h2 class="section-title" style="text-align: center;">New Arrivals</h2>
                 <div class="product-grid">
                     ${newArrivals.map(p => this.renderProductCard(p)).join('')}
                 </div>
@@ -201,8 +216,11 @@ const app = {
             ` : ''}
             
             ${s.showOnSale !== false ? `
-            <section class="container mb-2">
-                <h2 class="section-title">On Sale</h2>
+            <section class="container mb-2" style="margin-top: 5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2rem;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Special Offers</h2>
+                    <a href="#" onclick="app.navigate('shop', {filter: 'sale'})" style="color: var(--primary); font-weight: 500; text-decoration: underline;">Shop All Sale</a>
+                </div>
                 <div class="product-grid">
                     ${sale.map(p => this.renderProductCard(p)).join('')}
                 </div>
@@ -236,6 +254,14 @@ const app = {
             title = 'Sale Items';
         }
 
+        if (params.sort === 'price_asc') {
+            products.sort((a, b) => (a.discountPrice || a.price) - (b.discountPrice || b.price));
+        } else if (params.sort === 'price_desc') {
+            products.sort((a, b) => (b.discountPrice || b.price) - (a.discountPrice || a.price));
+        } else if (params.sort === 'newest') {
+            products.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        }
+
         if (isComingSoon) {
             return `
                 <div class="container mt-2 mb-2" style="min-height: 50vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
@@ -247,9 +273,22 @@ const app = {
             `;
         }
 
+        const navParams = JSON.stringify(params).replace(/"/g, '&quot;');
+
         return `
             <div class="container mt-2 mb-2">
-                <h1 style="margin-bottom: 2rem;">${title}</h1>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+                    <h1 style="margin: 0;">${title} <span style="font-size: 1rem; color: var(--text-light); font-weight: normal;">(${products.length})</span></h1>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="sort-select" style="font-size: 0.875rem; color: var(--text-light);">Sort by:</label>
+                        <select id="sort-select" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--white); font-family: inherit;" onchange="app.navigate('shop', Object.assign({}, ${navParams}, {sort: this.value}))">
+                            <option value="">Featured</option>
+                            <option value="newest" ${params.sort === 'newest' ? 'selected' : ''}>New Arrivals</option>
+                            <option value="price_asc" ${params.sort === 'price_asc' ? 'selected' : ''}>Price: Low to High</option>
+                            <option value="price_desc" ${params.sort === 'price_desc' ? 'selected' : ''}>Price: High to Low</option>
+                        </select>
+                    </div>
+                </div>
                 ${products.length === 0 ? '<p>No products found.</p>' : `
                     <div class="product-grid">
                         ${products.map(p => this.renderProductCard(p)).join('')}
@@ -297,15 +336,25 @@ const app = {
 
         return `
             <div class="container mt-2 mb-2">
+                <!-- Breadcrumbs -->
+                <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <a href="#" onclick="app.navigate('home')" style="color: var(--text-light); text-decoration: none;">Home</a>
+                    <span>/</span>
+                    <a href="#" onclick="app.navigate('shop')" style="color: var(--text-light); text-decoration: none;">Shop</a>
+                    ${cat ? `<span>/</span> <a href="#" onclick="app.navigate('shop', {category: '${cat.id}'})" style="color: var(--text-light); text-decoration: none;">${cat.name}</a>` : ''}
+                    <span>/</span>
+                    <span style="color: var(--text-dark);">${product.name}</span>
+                </div>
+                
                 <div style="display: flex; flex-wrap: wrap; gap: 3rem;">
                     <div style="flex: 1; min-width: 300px;">
                         ${imageHtml}
                     </div>
                     <div style="flex: 1; min-width: 300px;">
-                        <div style="color: var(--text-light); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                            ${cat ? cat.name : ''} | SKU: ${product.sku}
+                        <h1 style="margin-bottom: 0.5rem; font-size: 2rem;">${product.name}</h1>
+                        <div style="color: var(--text-light); font-size: 0.875rem; margin-bottom: 1.5rem;">
+                            SKU: ${product.sku}
                         </div>
-                        <h1 style="margin-bottom: 1rem;">${product.name}</h1>
                         <div style="font-size: 1.5rem; font-weight: 600; color: var(--primary); margin-bottom: 1.5rem;">
                             ${priceHtml}
                         </div>
@@ -315,7 +364,7 @@ const app = {
                                 <span>Size</span>
                                 ${db.getSettings().globalSizeGuide ? `<a href="javascript:void(0)" onclick="app.openSizeGuide()" style="color:var(--primary); font-size:0.875rem; text-decoration:underline;">Size Guide</a>` : ''}
                             </label>
-                            <select id="pd-size">
+                            <select id="pd-size" style="padding: 0.75rem; font-size: 1rem;">
                                 ${product.sizes ? product.sizes.map(s => {
                                     const stockCount = (product.sizeStock && typeof product.sizeStock[s] !== 'undefined') ? product.sizeStock[s] : -1;
                                     const outOfStock = stockCount === 0;
@@ -339,22 +388,53 @@ const app = {
 
                         <div class="form-group" style="max-width: 100px;">
                             <label>Quantity</label>
-                            <input type="number" id="pd-qty" value="1" min="1" max="${product.stock}">
+                            <input type="number" id="pd-qty" value="1" min="1" max="${product.stock}" style="padding: 0.75rem; font-size: 1rem;">
                         </div>
 
                         <div style="display:flex; gap:1rem; margin-top: 2rem;">
-                            <button class="btn btn-accent" style="flex:1;" onclick="app.addToCart('${product.id}')">Add to Cart</button>
-                            <button class="btn btn-outline" onclick="app.toggleWishlist('${product.id}')">
+                            <button class="btn btn-accent" style="flex:1; padding: 1rem; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;" onclick="app.addToCart('${product.id}')">Add to Cart</button>
+                            <button class="btn btn-outline" style="padding: 1rem; width: 60px; display: flex; align-items: center; justify-content: center;" onclick="app.toggleWishlist('${product.id}')">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="${this.isInWishlist(product.id) ? 'var(--danger)' : 'none'}" stroke="${this.isInWishlist(product.id) ? 'var(--danger)' : 'currentColor'}" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                             </button>
                         </div>
+                        
+                        <!-- Trust Badges -->
+                        <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 1.5rem 0;">
+                            <div style="flex: 1; min-width: 120px; display: flex; align-items: center; gap: 0.5rem; color: var(--text-light); font-size: 0.85rem;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                                <span>Premium Quality</span>
+                            </div>
+                            <div style="flex: 1; min-width: 120px; display: flex; align-items: center; gap: 0.5rem; color: var(--text-light); font-size: 0.85rem;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
+                                <span>Secure Checkout</span>
+                            </div>
+                            <div style="flex: 1; min-width: 120px; display: flex; align-items: center; gap: 0.5rem; color: var(--text-light); font-size: 0.85rem;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 12H16c-.7 2-2 3-4 3s-3.3-1-4-3H2.5"/><path d="M5.5 5.1L2 12v6c0 1.1.9 2 2 2h16a2 2 0 002-2v-6l-3.4-6.9A2 2 0 0017 4H7a2 2 0 00-1.5 1.1z"/></svg>
+                                <span>Fast Delivery</span>
+                            </div>
+                        </div>
 
-                        <div style="margin-top: 3rem;">
+                        <div style="margin-top: 2rem;">
                             <h3>Description</h3>
-                            <p style="color: var(--text-light); margin-top: 1rem; white-space: pre-line;">${product.description || 'No description available.'}</p>
+                            <p style="color: var(--text-light); margin-top: 1rem; white-space: pre-line; line-height: 1.6;">${product.description || 'No description available.'}</p>
                         </div>
                     </div>
                 </div>
+                
+                ${(() => {
+                    const allProducts = db.get('products').filter(p => p.status === 'Active' && p.id !== product.id && p.category === product.category);
+                    if (allProducts.length === 0) return '';
+                    
+                    const related = allProducts.slice(0, 4); // Get up to 4 related products
+                    return `
+                        <div style="margin-top: 4rem;">
+                            <h2 style="margin-bottom: 2rem;">You May Also Like</h2>
+                            <div class="product-grid">
+                                ${related.map(p => this.renderProductCard(p)).join('')}
+                            </div>
+                        </div>
+                    `;
+                })()}
             </div>
         `;
     },
@@ -1517,7 +1597,17 @@ const app = {
             let socialHtml = '';
             if (settings.facebook && settings.facebook !== '#') socialHtml += `<a href="${settings.facebook}" target="_blank" style="color:#ccc;" title="Facebook"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg></a>`;
             if (settings.instagram && settings.instagram !== '#') socialHtml += `<a href="${settings.instagram}" target="_blank" style="color:#ccc;" title="Instagram"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg></a>`;
-            if (settings.whatsapp && settings.whatsapp !== '#') socialHtml += `<a href="${settings.whatsapp}" target="_blank" style="color:#ccc;" title="WhatsApp"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></a>`;
+            if (settings.whatsapp && settings.whatsapp !== '#') {
+                socialHtml += `<a href="${settings.whatsapp}" target="_blank" style="color:#ccc;" title="WhatsApp"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></a>`;
+                const floatBtn = document.getElementById('floating-whatsapp');
+                if (floatBtn) {
+                    floatBtn.href = settings.whatsapp;
+                    floatBtn.classList.remove('hidden');
+                }
+            } else {
+                const floatBtn = document.getElementById('floating-whatsapp');
+                if (floatBtn) floatBtn.classList.add('hidden');
+            }
             if (settings.youtube && settings.youtube !== '#') socialHtml += `<a href="${settings.youtube}" target="_blank" style="color:#ccc;" title="YouTube"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33 2.78 2.78 0 0 0 1.94 2c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg></a>`;
             if (settings.tiktok && settings.tiktok !== '#') socialHtml += `<a href="${settings.tiktok}" target="_blank" style="color:#ccc;" title="TikTok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path></svg></a>`;
             if (settings.twitter && settings.twitter !== '#') socialHtml += `<a href="${settings.twitter}" target="_blank" style="color:#ccc;" title="Twitter"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l11.733 16h4.267l-11.733 -16z"></path><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"></path></svg></a>`;
