@@ -36,7 +36,7 @@ async function startServer() {
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-2.5-flash',
         contents: history,
         config: systemInstruction ? { systemInstruction } : undefined
       });
@@ -63,7 +63,8 @@ async function startServer() {
          }
       }
       
-      res.status(500).json({ error: userMessage });
+      // Return 200 with error property so Cloud Run Proxy does not intercept 5xx and serve HTML
+      res.status(200).json({ error: userMessage });
     }
   });
 
