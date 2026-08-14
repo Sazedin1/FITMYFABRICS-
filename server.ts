@@ -68,6 +68,11 @@ async function startServer() {
     }
   });
 
+  // Admin routing to prevent Vite from serving raw admin.js code on /admin
+  app.get(['/admin', '/admin/'], (req, res) => {
+    res.redirect('/admin.html');
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -81,6 +86,9 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
+    app.get(['/admin', '/admin/', '/admin.html'], (req, res) => {
+      res.sendFile(path.join(distPath, 'admin.html'));
+    });
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
