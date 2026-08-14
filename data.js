@@ -1,7 +1,7 @@
 // data.js - Shared data layer for FIT MY FABRICS
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, getDocs, setLogLevel } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs, setLogLevel } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 
 // Suppress benign WebChannel transport warnings from Firebase
@@ -102,8 +102,10 @@ const seedCoupons = [
     { id: 'cp2', code: 'FLAT100', type: 'flat', value: 100, minOrder: 1500, expiry: '2026-12-31', usageCount: 0, status: 'Active' }
 ];
 
-// Initialize DB
+// Initialize DB locally
 function initDB() {
+    const isSeededLocally = localStorage.getItem(DB_PREFIX + 'seed_initialized');
+
     let settings = JSON.parse(localStorage.getItem(DB_PREFIX + 'settings'));
     if (!settings) {
         settings = defaultSettings;
@@ -111,16 +113,23 @@ function initDB() {
     } else if (typeof settings.globalSizeGuide === 'undefined') {
         settings.globalSizeGuide = defaultSettings.globalSizeGuide;
         localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(settings));
-        // We also want to push this to firestore if app is initialized, but doing it via setDoc is cleaner below
     }
-    if (!localStorage.getItem(DB_PREFIX + 'categories')) {
-        localStorage.setItem(DB_PREFIX + 'categories', JSON.stringify(seedCategories));
+
+    if (!isSeededLocally) {
+        if (!localStorage.getItem(DB_PREFIX + 'categories')) {
+            localStorage.setItem(DB_PREFIX + 'categories', JSON.stringify(seedCategories));
+        }
+        if (!localStorage.getItem(DB_PREFIX + 'products')) {
+            localStorage.setItem(DB_PREFIX + 'products', JSON.stringify(seedProducts));
+        }
+        if (!localStorage.getItem(DB_PREFIX + 'coupons')) {
+            localStorage.setItem(DB_PREFIX + 'coupons', JSON.stringify(seedCoupons));
+        }
+        localStorage.setItem(DB_PREFIX + 'seed_initialized', 'true');
     }
-    if (!localStorage.getItem(DB_PREFIX + 'products')) {
-        localStorage.setItem(DB_PREFIX + 'products', JSON.stringify(seedProducts));
-    }
-    if (!localStorage.getItem(DB_PREFIX + 'coupons')) {
-        localStorage.setItem(DB_PREFIX + 'coupons', JSON.stringify(seedCoupons));
+
+    if (!localStorage.getItem(DB_PREFIX + 'archive')) {
+        localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify([]));
     }
     if (!localStorage.getItem(DB_PREFIX + 'orders')) {
         localStorage.setItem(DB_PREFIX + 'orders', JSON.stringify([]));
@@ -170,10 +179,117 @@ const db = {
         }
         return null;
     },
-    delete: (table, id) => {
+    delete: (table, id, permanent = false) => {
         const data = db.get(table);
-        localStorage.setItem(DB_PREFIX + table, JSON.stringify(data.filter(item => item.id !== id)));
-        deleteDoc(doc(firestore, table, id));
+        const item = data.find(i => i.id === id);
+
+        if (permanent || table === 'archive') {
+            // Permanent hard deletion
+            localStorage.setItem(DB_PREFIX + table, JSON.stringify(data.filter(i => i.id !== id)));
+            deleteDoc(doc(firestore, table, id));
+            return true;
+        }
+
+        if (item) {
+            // Move item to archive with 45-day retention policy
+            const now = Date.now();
+            const retentionDays = 45;
+            const expiresAt = now + (retentionDays * 24 * 60 * 60 * 1000);
+
+            const archiveRecord = {
+                id: 'arch_' + id + '_' + now,
+                originalId: id,
+                table: table,
+                itemType: table === 'products' ? 'Product' :
+                          table === 'categories' ? 'Category' :
+                          table === 'coupons' ? 'Coupon' :
+                          table === 'orders' ? 'Order' :
+                          table === 'customers' ? 'Customer' :
+                          table === 'admins' ? 'Staff' :
+                          table === 'banners' ? 'Banner' : 'Item',
+                name: item.name || item.code || (item.customer ? item.customer.name : '') || item.email || item.title || ('Item #' + id),
+                details: item.price ? `Price: ৳${item.price}` :
+                         item.code ? `Code: ${item.code}` :
+                         item.total ? `Total: ৳${item.total}` :
+                         item.email ? `Email: ${item.email}` : '',
+                data: item,
+                deletedAt: new Date(now).toISOString(),
+                expiresAt: new Date(expiresAt).toISOString()
+            };
+
+            // Remove from active table in local storage and Firestore
+            localStorage.setItem(DB_PREFIX + table, JSON.stringify(data.filter(i => i.id !== id)));
+            deleteDoc(doc(firestore, table, id));
+
+            // Save to Archive collection and local storage
+            const archiveData = db.get('archive');
+            archiveData.push(archiveRecord);
+            localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify(archiveData));
+            setDoc(doc(firestore, 'archive', archiveRecord.id), archiveRecord);
+
+            return archiveRecord;
+        } else {
+            // In case item was not in local cache, remove from firestore
+            deleteDoc(doc(firestore, table, id));
+        }
+    },
+    restoreItem: (archiveId) => {
+        const archiveData = db.get('archive');
+        const archiveItem = archiveData.find(a => a.id === archiveId);
+        if (!archiveItem || !archiveItem.data) return false;
+
+        const table = archiveItem.table || 'products';
+        const originalData = archiveItem.data;
+
+        // Restore back to original table
+        const tableData = db.get(table);
+        const existingIndex = tableData.findIndex(i => i.id === originalData.id);
+        if (existingIndex !== -1) {
+            tableData[existingIndex] = originalData;
+        } else {
+            tableData.push(originalData);
+        }
+        localStorage.setItem(DB_PREFIX + table, JSON.stringify(tableData));
+        setDoc(doc(firestore, table, originalData.id), originalData);
+
+        // Remove from Archive
+        const newArchive = archiveData.filter(a => a.id !== archiveId);
+        localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify(newArchive));
+        deleteDoc(doc(firestore, 'archive', archiveId));
+
+        return originalData;
+    },
+    purgeExpiredArchive: () => {
+        const archiveData = db.get('archive');
+        if (!archiveData || archiveData.length === 0) return 0;
+
+        const now = Date.now();
+        const validItems = [];
+        let purgedCount = 0;
+
+        archiveData.forEach(item => {
+            const expTime = item.expiresAt ? new Date(item.expiresAt).getTime() : (new Date(item.deletedAt).getTime() + 45 * 24 * 60 * 60 * 1000);
+            if (expTime <= now) {
+                deleteDoc(doc(firestore, 'archive', item.id));
+                purgedCount++;
+            } else {
+                validItems.push(item);
+            }
+        });
+
+        if (purgedCount > 0) {
+            localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify(validItems));
+            console.log(`Auto-purged ${purgedCount} expired items from archive (older than 45 days).`);
+        }
+        return purgedCount;
+    },
+    emptyArchive: () => {
+        const archiveData = db.get('archive');
+        archiveData.forEach(item => {
+            deleteDoc(doc(firestore, 'archive', item.id));
+        });
+        localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify([]));
+        return true;
     },
     getSettings: () => JSON.parse(localStorage.getItem(DB_PREFIX + 'settings') || '{}'),
     setSettings: (settings) => {
@@ -183,7 +299,7 @@ const db = {
 };
 
 let syncReadyCount = 0;
-const syncTables = ['categories', 'products', 'coupons', 'orders', 'banners', 'admins', 'customers'];
+const syncTables = ['categories', 'products', 'coupons', 'orders', 'banners', 'admins', 'customers', 'archive'];
 
 syncTables.forEach(table => {
     onSnapshot(collection(firestore, table), (snapshot) => {
@@ -213,10 +329,13 @@ onSnapshot(doc(firestore, 'system', 'settings'), (docSnap) => {
 
 export let isAppInitialized = false;
 function checkIfAppReady() {
-    // Wait until all 7 collections + 1 settings document are synced at least once
-    if (syncReadyCount >= 8 && !isAppInitialized) {
+    // Wait until all collections + settings document are synced at least once
+    if (syncReadyCount >= (syncTables.length + 1) && !isAppInitialized) {
         isAppInitialized = true;
         
+        // Auto purge expired items older than 45 days
+        db.purgeExpiredArchive();
+
         // Ensure size guide migration pushes to Firebase
         const currentSettings = db.getSettings();
         if (typeof currentSettings.globalSizeGuide === 'undefined') {
@@ -229,7 +348,6 @@ function checkIfAppReady() {
     } else if (isAppInitialized) {
         // If data changes AFTER initialization, refresh app views.
         if (window.app && window.app.renderHome) {
-            // Using hash routing
             window.app.navigate(window.app.currentPage || 'home', window.app.currentParams || {});
         }
         if (window.adminApp && window.adminApp.renderDashboard) {
@@ -302,17 +420,22 @@ window.showToast = showToast;
 window.compressImage = compressImage;
 window.isAppInitialized = () => isAppInitialized;
 
-// Seed Firebase if it's completely empty
+// Seed Firebase ONCE only if system is completely fresh, never re-seed if user deleted products
 async function seedFirebase() {
     try {
-        const prodSnapshot = await getDocs(collection(firestore, 'products'));
-        if (prodSnapshot.empty) {
-            console.log('Database empty! Seeding data...');
+        const initDoc = await getDoc(doc(firestore, 'system', 'seed_initialized'));
+        if (!initDoc.exists()) {
+            console.log('Database brand new! Seeding initial data...');
             seedCategories.forEach(c => setDoc(doc(firestore, 'categories', c.id), c));
             seedProducts.forEach(p => setDoc(doc(firestore, 'products', p.id), p));
             seedCoupons.forEach(c => setDoc(doc(firestore, 'coupons', c.id), c));
             setDoc(doc(firestore, 'system', 'settings'), defaultSettings);
             setDoc(doc(firestore, 'admins', 'admin_1'), { email: 'admin@fitmyfabrics.com', password: 'Sagor22777@', role: 'master', name: 'Master Admin' });
+            await setDoc(doc(firestore, 'system', 'seed_initialized'), {
+                initialized: true,
+                seededAt: new Date().toISOString()
+            });
+            localStorage.setItem(DB_PREFIX + 'seed_initialized', 'true');
         }
     } catch (e) {
         console.error('Seed error:', e);
@@ -320,4 +443,5 @@ async function seedFirebase() {
 }
 
 seedFirebase();
+
 

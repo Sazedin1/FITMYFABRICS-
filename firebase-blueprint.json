@@ -37,6 +37,19 @@
         "total": { "type": "number" },
         "items": { "type": "array" }
       }
+    },
+    "ArchiveItem": {
+      "title": "ArchiveItem",
+      "description": "Archived deleted items retained for 45 days",
+      "type": "object",
+      "properties": {
+        "originalId": { "type": "string" },
+        "table": { "type": "string" },
+        "itemType": { "type": "string" },
+        "name": { "type": "string" },
+        "deletedAt": { "type": "string" },
+        "expiresAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -55,6 +68,10 @@
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Customer orders"
+    },
+    "/archive/{archiveId}": {
+      "schema": "ArchiveItem",
+      "description": "Archived deleted items with 45-day retention"
     }
   }
 }

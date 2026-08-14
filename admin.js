@@ -127,6 +127,9 @@ const adminApp = {
             case 'customers':
                 content.innerHTML = this.renderCustomers();
                 break;
+            case 'archive':
+                content.innerHTML = this.renderArchive();
+                break;
             case 'appearance':
                 const sApp = db.getSettings();
                 this.tempAppearance = {
@@ -953,7 +956,7 @@ const adminApp = {
                                 </td>
                                 <td>
                                     <button class="action-btn edit-btn" onclick="adminApp.toggleBlockCustomer('${c.id}', ${c.blocked ? 'false' : 'true'})">${c.blocked ? 'Unblock' : 'Block'}</button>
-                                    <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('customers', '${c.id}', 'adminApp.renderCustomers()')">Delete</button>
+                                    <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('customers', '${c.id}', '${(c.name || c.email || 'Customer').replace(/'/g, "\\'")}')">Delete</button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -1261,14 +1264,163 @@ const adminApp = {
         document.getElementById(id).classList.remove('active');
     },
 
-    confirmDelete(table, id, name) {
-        document.getElementById('delete-msg').textContent = `Are you sure you want to delete "${name}"?`;
+    confirmDelete(table, id, name, isPermanent = false) {
+        const isArchive = table === 'archive' || isPermanent;
+        const msg = isArchive 
+            ? `Are you sure you want to PERMANENTLY delete "${name}"? This action cannot be undone.`
+            : `Are you sure you want to delete "${name}"? It will be moved to the Archive and auto-deleted after 45 days.`;
+            
+        document.getElementById('delete-msg').textContent = msg;
         const btn = document.getElementById('confirm-delete-btn');
+        btn.textContent = isArchive ? 'Delete Permanently' : 'Move to Archive';
+        btn.style.background = 'var(--danger)';
+        
         btn.onclick = () => {
-            db.delete(table, id);
-            showToast('Item deleted successfully');
+            db.delete(table, id, isArchive);
+            showToast(isArchive ? 'Item permanently deleted' : 'Item moved to Archive (45d retention)');
             this.closeModal('delete-modal');
-            this.navigate(table);
+            this.navigate(table === 'archive' ? 'archive' : table);
+        };
+        document.getElementById('delete-modal').classList.add('active');
+    },
+
+    // --- Archive & Auto-Delete Management ---
+    renderArchive() {
+        if (db.purgeExpiredArchive) db.purgeExpiredArchive();
+        
+        const archive = db.get('archive') || [];
+        const now = Date.now();
+        
+        const enriched = archive.slice().reverse().map(item => {
+            const expTime = item.expiresAt ? new Date(item.expiresAt).getTime() : (new Date(item.deletedAt).getTime() + 45 * 24 * 60 * 60 * 1000);
+            const msLeft = expTime - now;
+            const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+            return { ...item, daysLeft };
+        });
+
+        const filterType = this.archiveFilter || 'all';
+        const filtered = filterType === 'all' ? enriched : enriched.filter(i => (i.table === filterType || (i.itemType && i.itemType.toLowerCase() === filterType.toLowerCase())));
+
+        return `
+            <div class="admin-header">
+                <div>
+                    <h2>Archive & Recycle Bin (45-Day Auto Delete)</h2>
+                    <p style="color:var(--text-light); font-size:0.875rem; margin-top:0.25rem;">Deleted items are automatically kept for 45 days before permanent purging. You can restore or permanently delete them below.</p>
+                </div>
+                ${enriched.length > 0 ? `
+                    <button class="btn" style="background:var(--danger);" onclick="adminApp.confirmEmptyArchive()">Empty Archive</button>
+                ` : ''}
+            </div>
+
+            <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                <div class="stat-card">
+                    <div class="stat-title">Archived Items</div>
+                    <div class="stat-value">${enriched.length}</div>
+                    <div style="font-size:0.875rem; color:var(--text-light); margin-top:0.25rem;">Total items in recycle bin</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Retention Policy</div>
+                    <div class="stat-value" style="color:var(--accent);">45 Days</div>
+                    <div style="font-size:0.875rem; color:var(--text-light); margin-top:0.25rem;">Auto-purged from database</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Expiring Soon (≤ 7 Days)</div>
+                    <div class="stat-value" style="color:${enriched.filter(i => i.daysLeft <= 7).length > 0 ? 'var(--danger)' : 'var(--success)'};">
+                        ${enriched.filter(i => i.daysLeft <= 7).length}
+                    </div>
+                    <div style="font-size:0.875rem; color:var(--text-light); margin-top:0.25rem;">Due for auto deletion soon</div>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <button class="btn btn-sm ${filterType==='all'?'btn-primary':'btn-outline'}" onclick="adminApp.setArchiveFilter('all')">All (${enriched.length})</button>
+                    <button class="btn btn-sm ${filterType==='products'?'btn-primary':'btn-outline'}" onclick="adminApp.setArchiveFilter('products')">Products (${enriched.filter(i=>i.table==='products').length})</button>
+                    <button class="btn btn-sm ${filterType==='categories'?'btn-primary':'btn-outline'}" onclick="adminApp.setArchiveFilter('categories')">Categories (${enriched.filter(i=>i.table==='categories').length})</button>
+                    <button class="btn btn-sm ${filterType==='coupons'?'btn-primary':'btn-outline'}" onclick="adminApp.setArchiveFilter('coupons')">Coupons (${enriched.filter(i=>i.table==='coupons').length})</button>
+                    <button class="btn btn-sm ${filterType==='orders'?'btn-primary':'btn-outline'}" onclick="adminApp.setArchiveFilter('orders')">Orders (${enriched.filter(i=>i.table==='orders').length})</button>
+                    <button class="btn btn-sm ${filterType==='customers'?'btn-primary':'btn-outline'}" onclick="adminApp.setArchiveFilter('customers')">Customers (${enriched.filter(i=>i.table==='customers').length})</button>
+                </div>
+            </div>
+
+            <div class="admin-table-wrapper">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Name / Details</th>
+                            <th>Deleted Date</th>
+                            <th>Auto-Deletes In</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(item => `
+                            <tr>
+                                <td>
+                                    <span class="badge-tag ${item.table === 'products' ? 'badge-sale' : item.table === 'orders' ? 'badge-new' : ''}" style="${item.table==='categories'?'background:#7c3aed;color:#fff;':''}">
+                                        ${item.itemType || item.table}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="font-weight:600;">${item.name}</div>
+                                    ${item.details ? `<div style="font-size:0.8rem; color:var(--text-light);">${item.details}</div>` : ''}
+                                    <div style="font-size:0.75rem; color:var(--text-light); opacity:0.8;">Original ID: ${item.originalId}</div>
+                                </td>
+                                <td>${item.deletedAt ? new Date(item.deletedAt).toLocaleString() : 'N/A'}</td>
+                                <td>
+                                    <span style="font-weight:600; color:${item.daysLeft <= 5 ? 'var(--danger)' : 'var(--text)'};">
+                                        ⏱ ${item.daysLeft} day${item.daysLeft === 1 ? '' : 's'} left
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-btns">
+                                        <button class="action-btn edit-btn" style="background:#16a34a; color:#fff;" onclick="adminApp.restoreArchivedItem('${item.id}', '${item.name.replace(/'/g, "\\'")}')">Restore</button>
+                                        <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('archive', '${item.id}', '${item.name.replace(/'/g, "\\'")}', true)">Delete Forever</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                        ${filtered.length === 0 ? `
+                            <tr>
+                                <td colspan="5" class="text-center" style="padding: 3rem 1rem;">
+                                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🗑️</div>
+                                    <h4 style="color:var(--text-light);">Archive is empty</h4>
+                                    <p style="font-size:0.875rem; color:var(--text-light); margin-top:0.25rem;">Items deleted from products, categories, coupons, etc. will stay here for 45 days.</p>
+                                </td>
+                            </tr>
+                        ` : ''}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    },
+
+    setArchiveFilter(filter) {
+        this.archiveFilter = filter;
+        document.getElementById('admin-content').innerHTML = this.renderArchive();
+    },
+
+    restoreArchivedItem(archiveId, name) {
+        const restored = db.restoreItem(archiveId);
+        if (restored) {
+            showToast(`"${name}" restored successfully!`);
+            document.getElementById('admin-content').innerHTML = this.renderArchive();
+        } else {
+            showToast('Failed to restore item', 'error');
+        }
+    },
+
+    confirmEmptyArchive() {
+        document.getElementById('delete-msg').textContent = 'Are you sure you want to permanently delete ALL items in the Archive? This cannot be undone.';
+        const btn = document.getElementById('confirm-delete-btn');
+        btn.textContent = 'Empty Archive Now';
+        btn.style.background = 'var(--danger)';
+        btn.onclick = () => {
+            db.emptyArchive();
+            showToast('Archive emptied permanently');
+            this.closeModal('delete-modal');
+            document.getElementById('admin-content').innerHTML = this.renderArchive();
         };
         document.getElementById('delete-modal').classList.add('active');
     },
@@ -1373,7 +1525,7 @@ const adminApp = {
                                     ${(a.access || []).join(', ')}
                                 </td>
                                 <td>
-                                    <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('admins', '${a.id}', 'adminApp.renderStaff()')">Delete</button>
+                                    <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('admins', '${a.id}', '${(a.name || a.email || 'Staff').replace(/'/g, "\\'")}')">Delete</button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -1411,6 +1563,7 @@ const adminApp = {
                                 <label><input type="checkbox" class="cb-access" value="orders"> Orders</label>
                                 <label><input type="checkbox" class="cb-access" value="accounting"> Accounting</label>
                                 <label><input type="checkbox" class="cb-access" value="customers"> Customers</label>
+                                <label><input type="checkbox" class="cb-access" value="archive"> Archive</label>
                                 <label><input type="checkbox" class="cb-access" value="appearance"> Appearance</label>
                                 <label><input type="checkbox" class="cb-access" value="settings"> Settings</label>
                             </div>

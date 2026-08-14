@@ -1,6 +1,6 @@
 {
   "name": "Fit 14 aprl",
-  "description": "",
+  "description": "FIT MY FABRICS - E-commerce and Admin Dashboard with 45-day Archive retention policy and persistent database synchronization.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
