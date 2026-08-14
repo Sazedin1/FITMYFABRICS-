@@ -237,16 +237,8 @@ const app = {
             </section>
             ` : ''}
             
-            <section class="container" style="margin-top: 5rem; margin-bottom: 5rem;">
-                <div style="background: var(--bg-light); border-radius: 16px; padding: 4rem 2rem; text-align: center;">
-                    <h2 style="font-family: var(--font-heading); font-size: 2.5rem; margin-bottom: 1rem;">Elevate Your Everyday</h2>
-                    <p style="color: var(--text-light); font-size: 1.1rem; max-width: 600px; margin: 0 auto 2rem;">Designed for comfort, crafted for style. Explore our premium basics that form the foundation of every great wardrobe.</p>
-                    <button class="btn btn-primary" onclick="app.navigate('shop')" style="padding: 1rem 2rem; text-transform: uppercase; letter-spacing: 1px;">Explore Collection</button>
-                </div>
-            </section>
-
             ${s.showNewArrivals !== false ? `
-            <section class="container">
+            <section class="container" style="margin-top: 5rem;">
                 <h2 class="section-title" style="text-align: center;">New Arrivals</h2>
                 <div class="product-grid">
                     ${newArrivals.map(p => this.renderProductCard(p)).join('')}
