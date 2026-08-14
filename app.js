@@ -21,6 +21,16 @@ const app = {
         this.populateFooter();
         this.renderCart();
         
+        // Initialize tracker
+        if (window.tracker) {
+            window.tracker.init(this.currentCustomer ? {
+                userType: 'customer',
+                userId: this.currentCustomer.email || this.currentCustomer.id,
+                userName: this.currentCustomer.name || 'Customer',
+                userRole: 'customer'
+            } : null);
+        }
+
         if (s.maintenanceMode) {
             document.getElementById('app-content').innerHTML = this.renderMaintenance(s);
             document.getElementById('current-year').textContent = new Date().getFullYear();
@@ -41,10 +51,14 @@ const app = {
         }
     },
 
-    navigate(page, params = {}) {
+    navigate(page, params = {}, track = true) {
         const s = db.getSettings();
         const content = document.getElementById('app-content');
-        window.scrollTo(0, 0);
+        if (!content) return;
+        
+        if (track) {
+            window.scrollTo(0, 0);
+        }
 
         if (s.maintenanceMode) {
             content.innerHTML = this.renderMaintenance(s);
@@ -53,6 +67,10 @@ const app = {
 
         this.currentPage = page;
         this.currentParams = params;
+
+        if (track && window.tracker) {
+            window.tracker.logAction(`Visited ${page.toUpperCase()}`, page, params && Object.keys(params).length ? JSON.stringify(params) : '');
+        }
 
         switch(page) {
             case 'home':
@@ -87,6 +105,13 @@ const app = {
                 break;
             default:
                 content.innerHTML = this.renderHome();
+        }
+    },
+
+    renderCurrentViewSilent() {
+        // Soft refresh without scroll reset or tracking loop
+        if (this.currentPage && this.currentPage !== 'checkout' && this.currentPage !== 'product') {
+            this.navigate(this.currentPage, this.currentParams || {}, false);
         }
     },
 
@@ -898,6 +923,18 @@ const app = {
             }
             sessionStorage.setItem('fmf_customer', JSON.stringify(customer));
             this.checkAuth();
+            
+            if (window.tracker) {
+                window.tracker.startSession({
+                    userType: 'customer',
+                    userId: customer.email || customer.id,
+                    userName: customer.name || 'Customer',
+                    userRole: 'customer'
+                }).then(() => {
+                    window.tracker.startHeartbeat();
+                });
+            }
+
             this.toggleAuthModal();
             showToast('Welcome back, ' + customer.name);
             document.getElementById('login-form').reset();
@@ -908,6 +945,9 @@ const app = {
     },
 
     logoutCustomer(isBlocked = false) {
+        if (window.tracker) {
+            window.tracker.endSession(isBlocked ? 'Customer Blocked & Logged Out' : 'Customer Clicked Logout');
+        }
         sessionStorage.removeItem('fmf_customer');
         this.checkAuth();
         this.navigate('home');

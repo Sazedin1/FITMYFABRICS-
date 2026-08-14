@@ -153,6 +153,27 @@ function initDB() {
 
 initDB();
 
+// Safe Firestore operations with error catching
+const safeSetDoc = (docRef, data) => {
+    try {
+        return setDoc(docRef, data).catch(err => {
+            console.warn('Firestore setDoc warning:', err?.message || err);
+        });
+    } catch (err) {
+        console.warn('Firestore setDoc exception:', err);
+    }
+};
+
+const safeDeleteDoc = (docRef) => {
+    try {
+        return deleteDoc(docRef).catch(err => {
+            console.warn('Firestore deleteDoc warning:', err?.message || err);
+        });
+    } catch (err) {
+        console.warn('Firestore deleteDoc exception:', err);
+    }
+};
+
 // CRUD Helpers
 const db = {
     get: (table) => JSON.parse(localStorage.getItem(DB_PREFIX + table) || '[]'),
@@ -165,7 +186,7 @@ const db = {
         }
         data.push(item);
         localStorage.setItem(DB_PREFIX + table, JSON.stringify(data));
-        setDoc(doc(firestore, table, item.id), item);
+        safeSetDoc(doc(firestore, table, item.id), item);
         return item;
     },
     update: (table, id, updates) => {
@@ -174,7 +195,7 @@ const db = {
         if (index !== -1) {
             data[index] = { ...data[index], ...updates };
             localStorage.setItem(DB_PREFIX + table, JSON.stringify(data));
-            setDoc(doc(firestore, table, id), data[index]);
+            safeSetDoc(doc(firestore, table, id), data[index]);
             return data[index];
         }
         return null;
@@ -186,7 +207,7 @@ const db = {
         if (permanent || table === 'archive') {
             // Permanent hard deletion
             localStorage.setItem(DB_PREFIX + table, JSON.stringify(data.filter(i => i.id !== id)));
-            deleteDoc(doc(firestore, table, id));
+            safeDeleteDoc(doc(firestore, table, id));
             return true;
         }
 
@@ -219,18 +240,18 @@ const db = {
 
             // Remove from active table in local storage and Firestore
             localStorage.setItem(DB_PREFIX + table, JSON.stringify(data.filter(i => i.id !== id)));
-            deleteDoc(doc(firestore, table, id));
+            safeDeleteDoc(doc(firestore, table, id));
 
             // Save to Archive collection and local storage
             const archiveData = db.get('archive');
             archiveData.push(archiveRecord);
             localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify(archiveData));
-            setDoc(doc(firestore, 'archive', archiveRecord.id), archiveRecord);
+            safeSetDoc(doc(firestore, 'archive', archiveRecord.id), archiveRecord);
 
             return archiveRecord;
         } else {
             // In case item was not in local cache, remove from firestore
-            deleteDoc(doc(firestore, table, id));
+            safeDeleteDoc(doc(firestore, table, id));
         }
     },
     restoreItem: (archiveId) => {
@@ -250,12 +271,12 @@ const db = {
             tableData.push(originalData);
         }
         localStorage.setItem(DB_PREFIX + table, JSON.stringify(tableData));
-        setDoc(doc(firestore, table, originalData.id), originalData);
+        safeSetDoc(doc(firestore, table, originalData.id), originalData);
 
         // Remove from Archive
         const newArchive = archiveData.filter(a => a.id !== archiveId);
         localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify(newArchive));
-        deleteDoc(doc(firestore, 'archive', archiveId));
+        safeDeleteDoc(doc(firestore, 'archive', archiveId));
 
         return originalData;
     },
@@ -270,7 +291,7 @@ const db = {
         archiveData.forEach(item => {
             const expTime = item.expiresAt ? new Date(item.expiresAt).getTime() : (new Date(item.deletedAt).getTime() + 45 * 24 * 60 * 60 * 1000);
             if (expTime <= now) {
-                deleteDoc(doc(firestore, 'archive', item.id));
+                safeDeleteDoc(doc(firestore, 'archive', item.id));
                 purgedCount++;
             } else {
                 validItems.push(item);
@@ -286,7 +307,7 @@ const db = {
     emptyArchive: () => {
         const archiveData = db.get('archive');
         archiveData.forEach(item => {
-            deleteDoc(doc(firestore, 'archive', item.id));
+            safeDeleteDoc(doc(firestore, 'archive', item.id));
         });
         localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify([]));
         return true;
@@ -294,24 +315,58 @@ const db = {
     getSettings: () => JSON.parse(localStorage.getItem(DB_PREFIX + 'settings') || '{}'),
     setSettings: (settings) => {
         localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(settings));
-        setDoc(doc(firestore, 'system', 'settings'), settings);
+        safeSetDoc(doc(firestore, 'system', 'settings'), settings);
     }
 };
 
 let syncReadyCount = 0;
-const syncTables = ['categories', 'products', 'coupons', 'orders', 'banners', 'admins', 'customers', 'archive'];
+const syncTables = ['categories', 'products', 'coupons', 'orders', 'banners', 'admins', 'customers', 'archive', 'sessions'];
+
+let bgRefreshTimeout = null;
+function handleBackgroundDataSync(table) {
+    if (!isAppInitialized) return;
+
+    if (table === 'sessions') {
+        // If admin is viewing sessions, refresh only the sessions table
+        if (window.adminApp && window.adminApp.currentRoute === 'sessions') {
+            const content = document.getElementById('admin-content');
+            if (content) {
+                content.innerHTML = window.adminApp.renderSessions();
+            }
+        }
+        return;
+    }
+
+    // Debounce other updates to avoid rapid re-rendering
+    if (bgRefreshTimeout) clearTimeout(bgRefreshTimeout);
+    bgRefreshTimeout = setTimeout(() => {
+        if (window.app && window.app.renderCurrentViewSilent) {
+            window.app.renderCurrentViewSilent();
+        }
+        if (window.adminApp && window.adminApp.renderCurrentViewSilent && window.adminApp.currentUser) {
+            window.adminApp.renderCurrentViewSilent();
+        }
+    }, 400);
+}
 
 syncTables.forEach(table => {
     onSnapshot(collection(firestore, table), (snapshot) => {
         const data = [];
         snapshot.forEach(doc => data.push(doc.data()));
         localStorage.setItem(DB_PREFIX + table, JSON.stringify(data));
-        syncReadyCount++;
-        checkIfAppReady();
+        
+        if (!isAppInitialized) {
+            syncReadyCount++;
+            checkIfAppReady();
+        } else {
+            handleBackgroundDataSync(table);
+        }
     }, (error) => {
         console.warn(`Firestore sync warning for ${table}:`, error.message);
-        syncReadyCount++; // Allows app to proceed with offline/cached Data
-        checkIfAppReady();
+        if (!isAppInitialized) {
+            syncReadyCount++; // Allows app to proceed with offline/cached Data
+            checkIfAppReady();
+        }
     });
 });
 
@@ -319,12 +374,18 @@ onSnapshot(doc(firestore, 'system', 'settings'), (docSnap) => {
     if (docSnap.exists()) {
         localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(docSnap.data()));
     }
-    syncReadyCount++;
-    checkIfAppReady();
+    if (!isAppInitialized) {
+        syncReadyCount++;
+        checkIfAppReady();
+    } else {
+        handleBackgroundDataSync('settings');
+    }
 }, (error) => {
     console.warn(`Firestore sync warning for settings:`, error.message);
-    syncReadyCount++;
-    checkIfAppReady();
+    if (!isAppInitialized) {
+        syncReadyCount++;
+        checkIfAppReady();
+    }
 });
 
 export let isAppInitialized = false;
@@ -345,16 +406,6 @@ function checkIfAppReady() {
 
         if (window.app && window.app.init) window.app.init();
         if (window.adminApp && window.adminApp.init) window.adminApp.init();
-    } else if (isAppInitialized) {
-        // If data changes AFTER initialization, refresh app views.
-        if (window.app && window.app.renderHome) {
-            window.app.navigate(window.app.currentPage || 'home', window.app.currentParams || {});
-        }
-        if (window.adminApp && window.adminApp.renderDashboard) {
-            if (window.adminApp.currentUser) {
-                window.adminApp.navigate(window.adminApp.currentRoute || 'dashboard');
-            }
-        }
     }
 }
 

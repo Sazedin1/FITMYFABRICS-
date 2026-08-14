@@ -16,6 +16,17 @@ const adminApp = {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('admin-layout').classList.remove('hidden');
             this.updateSidebar();
+            
+            // Initialize tracker for active admin
+            if (window.tracker) {
+                window.tracker.init({
+                    userType: 'admin',
+                    userId: this.currentUser.email || 'admin@fitmyfabrics.com',
+                    userName: this.currentUser.name || 'Admin',
+                    userRole: this.currentUser.role || 'master'
+                });
+            }
+
             this.navigate('dashboard', document.querySelector('.admin-nav a[data-page="dashboard"]'));
         } else {
             document.getElementById('login-screen').classList.remove('hidden');
@@ -73,16 +84,31 @@ const adminApp = {
 
     setSession(user) {
         sessionStorage.setItem('fmf_admin_session', JSON.stringify(user));
+        
+        if (window.tracker) {
+            window.tracker.startSession({
+                userType: 'admin',
+                userId: user.email || 'admin@fitmyfabrics.com',
+                userName: user.name || 'Admin',
+                userRole: user.role || 'master'
+            }).then(() => {
+                window.tracker.startHeartbeat();
+            });
+        }
+
         this.checkAuth();
         showToast('Login successful');
     },
 
     logout() {
+        if (window.tracker) {
+            window.tracker.endSession('Admin Clicked Logout');
+        }
         sessionStorage.removeItem('fmf_admin_session');
         this.checkAuth();
     },
 
-    navigate(page, navElement) {
+    navigate(page, navElement, track = true) {
         if (!this.currentUser) return;
         
         // Enforce RBAC (Role-Based Access Control)
@@ -94,6 +120,10 @@ const adminApp = {
         }
 
         this.currentRoute = page;
+        if (track && window.tracker) {
+            window.tracker.logAction(`Admin Navigated to ${page.toUpperCase()}`, page);
+        }
+
         // Update active nav
         if (navElement) {
             document.querySelectorAll('.admin-nav a').forEach(el => el.classList.remove('active'));
@@ -101,6 +131,7 @@ const adminApp = {
         }
 
         const content = document.getElementById('admin-content');
+        if (!content) return;
         
         switch(page) {
             case 'staff':
@@ -127,6 +158,9 @@ const adminApp = {
             case 'customers':
                 content.innerHTML = this.renderCustomers();
                 break;
+            case 'sessions':
+                content.innerHTML = this.renderSessions();
+                break;
             case 'archive':
                 content.innerHTML = this.renderArchive();
                 break;
@@ -142,6 +176,15 @@ const adminApp = {
                 content.innerHTML = this.renderSettings();
                 break;
         }
+    },
+
+    renderCurrentViewSilent() {
+        if (!this.currentUser || !this.currentRoute) return;
+        // Skip silent refresh if user is currently editing a form or modal
+        if (document.querySelector('.modal.active') || document.querySelector('.modal[style*="display: flex"]') || document.querySelector('.modal[style*="display: block"]')) {
+            return;
+        }
+        this.navigate(this.currentRoute, null, false);
     },
 
     // --- Dashboard ---
@@ -160,6 +203,10 @@ const adminApp = {
         const pendingOrders = orders.filter(o => o.status === 'Pending').length;
         const lowStock = products.filter(p => p.stock < 5);
         const totalQuantity = products.reduce((sum, p) => sum + (p.stock || 0), 0);
+        
+        const sessions = db.get('sessions') || [];
+        const now = Date.now();
+        const activeOnline = sessions.filter(s => s.status === 'active' && (now - new Date(s.lastActiveAt || s.loginAt).getTime() < 180000)).length;
 
         return `
             <div class="admin-header">
@@ -186,6 +233,10 @@ const adminApp = {
                 <div class="stat-card">
                     <div class="stat-title">Pending Orders</div>
                     <div class="stat-value" style="color:var(--danger);">${pendingOrders}</div>
+                </div>
+                <div class="stat-card" style="cursor:pointer; border-left: 3px solid #16a34a;" onclick="adminApp.navigate('sessions', document.querySelector('.admin-nav a[data-page=\\'sessions\\']'))">
+                    <div class="stat-title">🟢 Active Online Now</div>
+                    <div class="stat-value" style="color:#16a34a;">${activeOnline} <span style="font-size:0.8rem; font-weight:normal; color:var(--text-light);">View Logs &rarr;</span></div>
                 </div>
             </div>
 
@@ -955,6 +1006,7 @@ const adminApp = {
                                     ${c.blocked ? '<span class="badge-tag badge-sale" style="background:var(--danger)">Blocked</span>' : '<span class="badge-tag badge-new">Active</span>'}
                                 </td>
                                 <td>
+                                    <button class="action-btn" style="background:#4338ca; color:#fff;" title="View Customer Activity & Sessions" onclick="adminApp.sessionFilter='all'; adminApp.sessionSearch='${c.email}'; adminApp.navigate('sessions', document.querySelector('.admin-nav a[data-page=\\'sessions\\']'));">Sessions</button>
                                     <button class="action-btn edit-btn" onclick="adminApp.toggleBlockCustomer('${c.id}', ${c.blocked ? 'false' : 'true'})">${c.blocked ? 'Unblock' : 'Block'}</button>
                                     <button class="action-btn delete-btn" onclick="adminApp.confirmDelete('customers', '${c.id}', '${(c.name || c.email || 'Customer').replace(/'/g, "\\'")}')">Delete</button>
                                 </td>
@@ -1563,6 +1615,7 @@ const adminApp = {
                                 <label><input type="checkbox" class="cb-access" value="orders"> Orders</label>
                                 <label><input type="checkbox" class="cb-access" value="accounting"> Accounting</label>
                                 <label><input type="checkbox" class="cb-access" value="customers"> Customers</label>
+                                <label><input type="checkbox" class="cb-access" value="sessions"> Live Sessions</label>
                                 <label><input type="checkbox" class="cb-access" value="archive"> Archive</label>
                                 <label><input type="checkbox" class="cb-access" value="appearance"> Appearance</label>
                                 <label><input type="checkbox" class="cb-access" value="settings"> Settings</label>
@@ -1622,6 +1675,553 @@ const adminApp = {
         showToast('Staff added successfully!');
         this.closeModal('staff-modal');
         document.getElementById('admin-content').innerHTML = this.renderStaff();
+    },
+
+    // --- Live Sessions, Login/Logout & Visitor Tracking ---
+
+    sessionFilter: 'all',
+    sessionSearch: '',
+
+    renderSessions() {
+        const sessions = (db.get('sessions') || []).slice().sort((a, b) => new Date(b.lastActiveAt || b.loginAt).getTime() - new Date(a.lastActiveAt || a.loginAt).getTime());
+        const now = Date.now();
+
+        // Calculate analytics
+        const activeSessions = sessions.filter(s => s.status === 'active' && (now - new Date(s.lastActiveAt || s.loginAt).getTime() < 180000));
+        const adminSessions = sessions.filter(s => s.userType === 'admin');
+        const customerSessions = sessions.filter(s => s.userType === 'customer');
+        const guestSessions = sessions.filter(s => s.userType === 'guest' || !s.userType);
+
+        let totalDuration = 0;
+        sessions.forEach(s => totalDuration += (s.durationSeconds || 0));
+        const avgDuration = sessions.length ? Math.round(totalDuration / sessions.length) : 0;
+
+        // Apply filters
+        let filtered = sessions;
+        if (this.sessionFilter === 'active') {
+            filtered = activeSessions;
+        } else if (this.sessionFilter === 'admin') {
+            filtered = adminSessions;
+        } else if (this.sessionFilter === 'customer') {
+            filtered = customerSessions;
+        } else if (this.sessionFilter === 'guest') {
+            filtered = guestSessions;
+        }
+
+        if (this.sessionSearch) {
+            const q = this.sessionSearch.toLowerCase();
+            filtered = filtered.filter(s => 
+                (s.userName && s.userName.toLowerCase().includes(q)) ||
+                (s.userId && s.userId.toLowerCase().includes(q)) ||
+                (s.ip && s.ip.toLowerCase().includes(q)) ||
+                (s.location && s.location.toLowerCase().includes(q)) ||
+                (s.deviceModel && s.deviceModel.toLowerCase().includes(q)) ||
+                (s.os && s.os.toLowerCase().includes(q)) ||
+                (s.browser && s.browser.toLowerCase().includes(q))
+            );
+        }
+
+        const formatDur = (secs) => {
+            if (!secs || secs <= 0) return '0s';
+            const s = Math.floor(secs);
+            const hrs = Math.floor(s / 3600);
+            const mins = Math.floor((s % 3600) / 60);
+            const remainder = s % 60;
+            if (hrs > 0) return `${hrs}h ${mins}m ${remainder}s`;
+            if (mins > 0) return `${mins}m ${remainder}s`;
+            return `${remainder}s`;
+        };
+
+        const formatDateTime = (isoString) => {
+            if (!isoString) return '<span style="color:var(--text-light); font-style:italic;">Not logged out yet</span>';
+            const d = new Date(isoString);
+            return `<div style="font-size:0.85rem; font-weight:500;">${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                    <div style="font-size:0.75rem; color:var(--text-light);">${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}</div>`;
+        };
+
+        return `
+            <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2>Live Sessions, Activity & Login/Logout Records</h2>
+                    <p style="color:var(--text-light); font-size:0.9rem; margin-top:4px;">
+                        Real-time visitor and administrator monitoring, duration on site, IP addresses, geolocations, and hardware models.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-outline btn-sm" onclick="adminApp.refreshSessionsView()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                        Refresh
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="adminApp.exportSessionsCSV()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Export CSV
+                    </button>
+                    <button class="btn btn-outline btn-sm" style="color:#ef4444; border-color:#fca5a5;" onclick="adminApp.clearOldSessions()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Clear Inactive Logs
+                    </button>
+                </div>
+            </div>
+
+            <!-- Metric Cards Grid -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin:20px 0;">
+                <div class="card" style="padding:16px; border-left: 4px solid #16a34a; display:flex; align-items:center; gap:14px;">
+                    <div style="width:44px; height:44px; border-radius:10px; background:#dcfce7; color:#16a34a; display:flex; align-items:center; justify-content:center; font-size:1.3rem;">
+                        🟢
+                    </div>
+                    <div>
+                        <div style="font-size:0.8rem; text-transform:uppercase; color:var(--text-light); font-weight:600; letter-spacing:0.5px;">Online Active Now</div>
+                        <div style="font-size:1.6rem; font-weight:700; color:var(--text);">${activeSessions.length} <span style="font-size:0.8rem; font-weight:normal; color:#16a34a;">Users</span></div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:16px; border-left: 4px solid #8b5cf6; display:flex; align-items:center; gap:14px;">
+                    <div style="width:44px; height:44px; border-radius:10px; background:#ede9fe; color:#8b5cf6; display:flex; align-items:center; justify-content:center; font-size:1.3rem;">
+                        🛡️
+                    </div>
+                    <div>
+                        <div style="font-size:0.8rem; text-transform:uppercase; color:var(--text-light); font-weight:600; letter-spacing:0.5px;">Admin Logins</div>
+                        <div style="font-size:1.6rem; font-weight:700; color:var(--text);">${adminSessions.length} <span style="font-size:0.8rem; font-weight:normal; color:#8b5cf6;">Sessions</span></div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:16px; border-left: 4px solid #3b82f6; display:flex; align-items:center; gap:14px;">
+                    <div style="width:44px; height:44px; border-radius:10px; background:#dbeafe; color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:1.3rem;">
+                        👤
+                    </div>
+                    <div>
+                        <div style="font-size:0.8rem; text-transform:uppercase; color:var(--text-light); font-weight:600; letter-spacing:0.5px;">Customer Accounts</div>
+                        <div style="font-size:1.6rem; font-weight:700; color:var(--text);">${customerSessions.length} <span style="font-size:0.8rem; font-weight:normal; color:#3b82f6;">Sessions</span></div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:16px; border-left: 4px solid #f59e0b; display:flex; align-items:center; gap:14px;">
+                    <div style="width:44px; height:44px; border-radius:10px; background:#fef3c7; color:#f59e0b; display:flex; align-items:center; justify-content:center; font-size:1.3rem;">
+                        ⏱️
+                    </div>
+                    <div>
+                        <div style="font-size:0.8rem; text-transform:uppercase; color:var(--text-light); font-weight:600; letter-spacing:0.5px;">Avg. Time on Site</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:var(--text);">${formatDur(avgDuration)}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tabs & Search Bar -->
+            <div class="card" style="padding:16px; margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn btn-sm ${this.sessionFilter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="adminApp.filterSessions('all')">
+                            All Logs (${sessions.length})
+                        </button>
+                        <button class="btn btn-sm ${this.sessionFilter === 'active' ? 'btn-primary' : 'btn-outline'}" onclick="adminApp.filterSessions('active')">
+                            🟢 Online (${activeSessions.length})
+                        </button>
+                        <button class="btn btn-sm ${this.sessionFilter === 'admin' ? 'btn-primary' : 'btn-outline'}" onclick="adminApp.filterSessions('admin')">
+                            🛡️ Admins (${adminSessions.length})
+                        </button>
+                        <button class="btn btn-sm ${this.sessionFilter === 'customer' ? 'btn-primary' : 'btn-outline'}" onclick="adminApp.filterSessions('customer')">
+                            👤 Customers (${customerSessions.length})
+                        </button>
+                        <button class="btn btn-sm ${this.sessionFilter === 'guest' ? 'btn-primary' : 'btn-outline'}" onclick="adminApp.filterSessions('guest')">
+                            🌐 Guests (${guestSessions.length})
+                        </button>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:8px; min-width:260px;">
+                        <input type="text" id="session-search-input" placeholder="Search by name, email, IP, location, device..." 
+                               value="${this.sessionSearch || ''}" 
+                               oninput="adminApp.searchSessions(this.value)" 
+                               style="width:100%; padding:8px 12px; font-size:0.85rem; border:1px solid var(--border); border-radius:6px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sessions Data Table -->
+            <div class="card table-container" style="overflow-x:auto;">
+                <table class="data-table" style="width:100%; min-width:980px;">
+                    <thead>
+                        <tr>
+                            <th style="width:180px;">User & Role</th>
+                            <th style="width:130px;">Status & Duration</th>
+                            <th style="width:150px;">Login Record</th>
+                            <th style="width:150px;">Logout Record</th>
+                            <th style="width:180px;">IP & Location</th>
+                            <th style="width:200px;">Device & Model</th>
+                            <th style="width:110px; text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.length === 0 ? `
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding:36px; color:var(--text-light);">
+                                    <div style="font-size:2rem; margin-bottom:8px;">🔍</div>
+                                    <p>No session or login records match your filter criteria.</p>
+                                </td>
+                            </tr>
+                        ` : filtered.map(s => {
+                            const isOnline = s.status === 'active' && (now - new Date(s.lastActiveAt || s.loginAt).getTime() < 180000);
+                            const roleBadgeColor = s.userRole === 'master' ? 'background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe;' : 
+                                                  (s.userType === 'admin' ? 'background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe;' : 
+                                                  (s.userType === 'customer' ? 'background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe;' : 
+                                                  'background:#f3f4f6; color:#4b5563; border:1px solid #e5e7eb;'));
+                            
+                            const roleLabel = s.userRole === 'master' ? 'Master Admin' : 
+                                             (s.userType === 'admin' ? 'Staff Admin' : 
+                                             (s.userType === 'customer' ? 'Customer' : 'Visitor / Guest'));
+
+                            const deviceIcon = s.deviceType === 'Mobile' ? '📱' : (s.deviceType === 'Tablet' ? '📟' : '💻');
+
+                            return `
+                                <tr>
+                                    <td>
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            <div style="width:34px; height:34px; border-radius:50%; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
+                                                ${s.userType === 'admin' ? '🛡️' : (s.userType === 'customer' ? '👤' : '🌐')}
+                                            </div>
+                                            <div style="overflow:hidden;">
+                                                <div style="font-weight:600; color:var(--text); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">
+                                                    ${s.userName || 'Anonymous Visitor'}
+                                                </div>
+                                                <div style="font-size:0.75rem; color:var(--text-light); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${s.userId || ''}">
+                                                    ${s.userId || 'Guest'}
+                                                </div>
+                                                <div style="margin-top:2px;">
+                                                    <span style="display:inline-block; font-size:0.65rem; padding:1px 6px; border-radius:4px; font-weight:600; text-transform:uppercase; ${roleBadgeColor}">
+                                                        ${roleLabel}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        ${isOnline ? `
+                                            <span style="display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">
+                                                <span style="width:7px; height:7px; border-radius:50%; background:#16a34a; box-shadow:0 0 6px #16a34a;"></span>
+                                                Active Now
+                                            </span>
+                                        ` : (s.status === 'logged_out' ? `
+                                            <span style="display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:600; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">
+                                                Logged Out
+                                            </span>
+                                        ` : `
+                                            <span style="display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:600; background:#f3f4f6; color:#6b7280; border:1px solid #e5e7eb;">
+                                                Session Ended
+                                            </span>
+                                        `)}
+                                        <div style="margin-top:4px; font-size:0.8rem; font-weight:600; color:var(--primary);">
+                                            ⏱️ ${formatDur(s.durationSeconds)}
+                                        </div>
+                                        <div style="font-size:0.7rem; color:var(--text-light);">
+                                            ${s.pageViews || 1} page views
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        ${formatDateTime(s.loginAt)}
+                                    </td>
+
+                                    <td>
+                                        ${formatDateTime(s.logoutAt)}
+                                    </td>
+
+                                    <td>
+                                        <div style="display:flex; align-items:center; gap:4px;">
+                                            <span style="font-family:monospace; font-size:0.8rem; font-weight:600; background:#f8fafc; padding:2px 6px; border-radius:4px; border:1px solid #e2e8f0;">
+                                                ${s.ip || '127.0.0.1'}
+                                            </span>
+                                            <button class="btn btn-sm btn-outline" style="padding:1px 5px; font-size:0.7rem; border-radius:4px; cursor:pointer;" title="Copy IP" onclick="navigator.clipboard.writeText('${s.ip || ''}'); showToast('IP copied to clipboard');">
+                                                📋
+                                            </button>
+                                        </div>
+                                        <div style="font-size:0.8rem; color:var(--text); margin-top:3px; font-weight:500;">
+                                            📍 ${s.location || s.city || 'Bangladesh'}
+                                        </div>
+                                        <div style="font-size:0.7rem; color:var(--text-light); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${s.isp || ''}">
+                                            🏢 ${s.isp || 'Broadband / Mobile'}
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div style="font-size:0.85rem; font-weight:600; color:var(--text);">
+                                            ${deviceIcon} ${s.deviceModel || 'Desktop / PC'}
+                                        </div>
+                                        <div style="font-size:0.75rem; color:var(--text-light); margin-top:2px;">
+                                            ${s.os || 'Unknown OS'} • ${s.browser || 'Browser'}
+                                        </div>
+                                        <div style="font-size:0.7rem; color:var(--text-light); margin-top:1px;">
+                                            🖥️ ${s.screen || 'Auto'} • 🌐 ${s.timezone || 'Asia/Dhaka'}
+                                        </div>
+                                    </td>
+
+                                    <td style="text-align:center;">
+                                        <div style="display:flex; justify-content:center; gap:6px;">
+                                            <button class="btn btn-sm btn-outline" style="padding:4px 8px; font-size:0.75rem;" title="View Full Activity Timeline" onclick="adminApp.showSessionDetail('${s.id}')">
+                                                👁️ Timeline
+                                            </button>
+                                            <button class="btn btn-sm btn-outline" style="padding:4px 8px; font-size:0.75rem; color:#ef4444; border-color:#fca5a5;" title="Delete Record" onclick="adminApp.deleteSession('${s.id}')">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    },
+
+    refreshSessionsView() {
+        const content = document.getElementById('admin-content');
+        if (content && this.currentRoute === 'sessions') {
+            content.innerHTML = this.renderSessions();
+            showToast('Session logs refreshed');
+        }
+    },
+
+    filterSessions(filterType) {
+        this.sessionFilter = filterType;
+        const content = document.getElementById('admin-content');
+        if (content) {
+            content.innerHTML = this.renderSessions();
+        }
+    },
+
+    searchSessions(val) {
+        this.sessionSearch = val;
+        const content = document.getElementById('admin-content');
+        if (content) {
+            content.innerHTML = this.renderSessions();
+            const input = document.getElementById('session-search-input');
+            if (input) {
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            }
+        }
+    },
+
+    showSessionDetail(sessionId) {
+        const session = db.getOne('sessions', sessionId);
+        if (!session) {
+            showToast('Session record not found', 'error');
+            return;
+        }
+
+        const formatDur = (secs) => {
+            if (!secs || secs <= 0) return '0s';
+            const s = Math.floor(secs);
+            const hrs = Math.floor(s / 3600);
+            const mins = Math.floor((s % 3600) / 60);
+            const remainder = s % 60;
+            if (hrs > 0) return `${hrs}h ${mins}m ${remainder}s`;
+            if (mins > 0) return `${mins}m ${remainder}s`;
+            return `${remainder}s`;
+        };
+
+        const now = Date.now();
+        const isOnline = session.status === 'active' && (now - new Date(session.lastActiveAt || session.loginAt).getTime() < 180000);
+
+        const history = session.history || [
+            {
+                time: session.loginAt,
+                action: session.userType === 'admin' ? 'Admin Login' : 'User Visit Started',
+                page: session.currentPage || 'Home',
+                details: `Connected from ${session.location || 'Bangladesh'} via ${session.deviceModel || 'device'}`
+            }
+        ];
+
+        const modalTitle = document.getElementById('session-modal-title');
+        if (modalTitle) {
+            modalTitle.innerHTML = `Session Details: <span style="color:var(--primary);">${session.userName || 'User'}</span>`;
+        }
+
+        const content = document.getElementById('session-detail-content');
+        if (content) {
+            content.innerHTML = `
+                <!-- System & Geo Overview Card -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:18px;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+                        <div>
+                            <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-light); font-weight:700;">User & Role</div>
+                            <div style="font-size:0.95rem; font-weight:600; color:var(--text); margin-top:2px;">${session.userName || 'Anonymous'}</div>
+                            <div style="font-size:0.8rem; color:var(--text-light);">${session.userId || 'Guest'}</div>
+                            <div style="margin-top:4px;">
+                                <span style="font-size:0.7rem; padding:2px 8px; border-radius:4px; font-weight:700; background:#e0e7ff; color:#3730a3;">
+                                    ${session.userRole ? session.userRole.toUpperCase() : 'GUEST'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-light); font-weight:700;">Status & Active Duration</div>
+                            <div style="margin-top:2px;">
+                                ${isOnline ? `
+                                    <span style="font-size:0.75rem; font-weight:700; background:#dcfce7; color:#16a34a; padding:2px 8px; border-radius:10px; border:1px solid #86efac;">
+                                        🟢 Online Active Now
+                                    </span>
+                                ` : (session.status === 'logged_out' ? `
+                                    <span style="font-size:0.75rem; font-weight:600; background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:10px;">
+                                        🔴 Logged Out
+                                    </span>
+                                ` : `
+                                    <span style="font-size:0.75rem; font-weight:600; background:#f3f4f6; color:#4b5563; padding:2px 8px; border-radius:10px;">
+                                        ⏱️ Ended
+                                    </span>
+                                `)}
+                            </div>
+                            <div style="font-size:1.1rem; font-weight:700; color:var(--primary); margin-top:4px;">
+                                ⏱️ ${formatDur(session.durationSeconds)} on site
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-light); font-weight:700;">IP & Location</div>
+                            <div style="font-size:0.95rem; font-weight:600; color:var(--text); margin-top:2px;">
+                                🌐 ${session.ip || '127.0.0.1'}
+                            </div>
+                            <div style="font-size:0.8rem; color:var(--text);">📍 ${session.location || 'Bangladesh'}</div>
+                            <div style="font-size:0.75rem; color:var(--text-light);">🏢 ${session.isp || 'ISP / Telecom'}</div>
+                        </div>
+
+                        <div>
+                            <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-light); font-weight:700;">Device Model & OS</div>
+                            <div style="font-size:0.95rem; font-weight:600; color:var(--text); margin-top:2px;">
+                                📱 ${session.deviceModel || 'Desktop PC'}
+                            </div>
+                            <div style="font-size:0.8rem; color:var(--text);">${session.os || 'OS'} • ${session.browser || 'Browser'}</div>
+                            <div style="font-size:0.75rem; color:var(--text-light);">🖥️ Screen: ${session.screen || 'N/A'} • TZ: ${session.timezone || 'Asia/Dhaka'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timestamps Summary -->
+                <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:18px;">
+                    <div>
+                        <div style="font-size:0.75rem; color:var(--text-light); font-weight:600;">LOGIN / VISIT TIME</div>
+                        <div style="font-size:0.85rem; font-weight:600; color:var(--text);">
+                            ${session.loginAt ? new Date(session.loginAt).toLocaleString() : 'N/A'}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem; color:var(--text-light); font-weight:600;">LAST ACTIVITY HEARTBEAT</div>
+                        <div style="font-size:0.85rem; font-weight:600; color:var(--text);">
+                            ${session.lastActiveAt ? new Date(session.lastActiveAt).toLocaleString() : 'N/A'}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem; color:var(--text-light); font-weight:600;">LOGOUT RECORD</div>
+                        <div style="font-size:0.85rem; font-weight:600; color:${session.logoutAt ? '#ef4444' : '#16a34a'};">
+                            ${session.logoutAt ? new Date(session.logoutAt).toLocaleString() : 'Still Active / In Session'}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step-by-Step Activity Timeline -->
+                <h3 style="font-size:1rem; font-weight:700; margin-bottom:12px;">Step-by-Step Activity Timeline (${history.length} events)</h3>
+                <div style="max-height:280px; overflow-y:auto; padding-left:14px; border-left: 2px solid #e2e8f0; margin-left:8px;">
+                    ${history.slice().reverse().map((ev, idx) => `
+                        <div style="position:relative; margin-bottom:16px;">
+                            <div style="position:absolute; left:-20px; top:4px; width:10px; height:10px; border-radius:50%; background:var(--primary); border:2px solid #fff;"></div>
+                            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
+                                <div style="font-size:0.85rem; font-weight:600; color:var(--text);">${ev.action}</div>
+                                <div style="font-size:0.75rem; color:var(--text-light);">${new Date(ev.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}</div>
+                            </div>
+                            <div style="font-size:0.75rem; color:var(--primary); font-weight:500;">Page: ${ev.page || 'Site'}</div>
+                            ${ev.details ? `<div style="font-size:0.75rem; color:var(--text-light); margin-top:2px;">${ev.details}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+                    <button class="btn btn-outline" onclick="adminApp.closeModal('session-modal')">Close</button>
+                    <button class="btn btn-primary" onclick="adminApp.deleteSession('${session.id}'); adminApp.closeModal('session-modal');">Delete Session Log</button>
+                </div>
+            `;
+        }
+
+        const modal = document.getElementById('session-modal');
+        if (modal) modal.classList.add('active');
+    },
+
+    deleteSession(sessionId) {
+        if (!confirm('Are you sure you want to delete this session record?')) return;
+        db.delete('sessions', sessionId);
+        showToast('Session record deleted');
+        const content = document.getElementById('admin-content');
+        if (content && this.currentRoute === 'sessions') {
+            content.innerHTML = this.renderSessions();
+        }
+    },
+
+    clearOldSessions() {
+        const sessions = db.get('sessions') || [];
+        const now = Date.now();
+        const oneDayAgo = now - (24 * 60 * 60 * 1000);
+        
+        let deleted = 0;
+        sessions.forEach(s => {
+            if (s.status !== 'active' || (now - new Date(s.lastActiveAt || s.loginAt).getTime() > 24 * 60 * 60 * 1000)) {
+                db.delete('sessions', s.id);
+                deleted++;
+            }
+        });
+
+        showToast(`Cleared ${deleted} old/inactive session logs.`);
+        const content = document.getElementById('admin-content');
+        if (content && this.currentRoute === 'sessions') {
+            content.innerHTML = this.renderSessions();
+        }
+    },
+
+    exportSessionsCSV() {
+        const sessions = db.get('sessions') || [];
+        if (sessions.length === 0) {
+            showToast('No session data to export', 'error');
+            return;
+        }
+
+        const headers = ['Session ID', 'User Type', 'User ID / Email', 'User Name', 'Role', 'Status', 'Duration (Seconds)', 'IP Address', 'Location', 'City', 'Country', 'ISP', 'Device Model', 'Device Type', 'OS', 'Browser', 'Screen', 'Login Time', 'Logout Time', 'Last Active'];
+        
+        const csvRows = [headers.join(',')];
+
+        sessions.forEach(s => {
+            const row = [
+                `"${s.id || ''}"`,
+                `"${s.userType || ''}"`,
+                `"${(s.userId || '').replace(/"/g, '""')}"`,
+                `"${(s.userName || '').replace(/"/g, '""')}"`,
+                `"${s.userRole || ''}"`,
+                `"${s.status || ''}"`,
+                s.durationSeconds || 0,
+                `"${s.ip || ''}"`,
+                `"${(s.location || '').replace(/"/g, '""')}"`,
+                `"${(s.city || '').replace(/"/g, '""')}"`,
+                `"${(s.country || '').replace(/"/g, '""')}"`,
+                `"${(s.isp || '').replace(/"/g, '""')}"`,
+                `"${(s.deviceModel || '').replace(/"/g, '""')}"`,
+                `"${s.deviceType || ''}"`,
+                `"${(s.os || '').replace(/"/g, '""')}"`,
+                `"${(s.browser || '').replace(/"/g, '""')}"`,
+                `"${s.screen || ''}"`,
+                `"${s.loginAt || ''}"`,
+                `"${s.logoutAt || ''}"`,
+                `"${s.lastActiveAt || ''}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sessions_report_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Sessions report CSV downloaded!');
     }
 };
 

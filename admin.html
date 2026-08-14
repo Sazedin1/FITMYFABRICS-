@@ -52,6 +52,7 @@
                 <li><a href="#" data-page="orders" onclick="adminApp.navigate('orders', this)">Orders</a></li>
                 <li><a href="#" data-page="accounting" onclick="adminApp.navigate('accounting', this)">Accounting</a></li>
                 <li><a href="#" data-page="customers" onclick="adminApp.navigate('customers', this)">Customers</a></li>
+                <li><a href="#" data-page="sessions" onclick="adminApp.navigate('sessions', this)">Live Sessions & Logs</a></li>
                 <li><a href="#" data-page="archive" onclick="adminApp.navigate('archive', this)">Archive (45d)</a></li>
                 <li><a href="#" data-page="appearance" onclick="adminApp.navigate('appearance', this)">Appearance</a></li>
                 <li><a href="#" data-page="settings" onclick="adminApp.navigate('settings', this)">Settings</a></li>
@@ -231,8 +232,18 @@
         </div>
     </div>
 
+    <!-- Session & Device Detail Modal -->
+    <div id="session-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 750px;">
+            <button class="modal-close" onclick="adminApp.closeModal('session-modal')">&times;</button>
+            <h2 id="session-modal-title">Session & Device Activity</h2>
+            <div id="session-detail-content" class="mt-2"></div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script type="module" src="/data.js"></script>
+    <script type="module" src="/tracker.js"></script>
     <script type="module" src="/admin.js"></script>
 </body>
 </html>

@@ -50,6 +50,29 @@
         "deletedAt": { "type": "string" },
         "expiresAt": { "type": "string" }
       }
+    },
+    "SessionLog": {
+      "title": "SessionLog",
+      "description": "User and admin login, duration, location, IP and device tracking records",
+      "type": "object",
+      "properties": {
+        "userType": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "ip": { "type": "string" },
+        "location": { "type": "string" },
+        "city": { "type": "string" },
+        "country": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "os": { "type": "string" },
+        "browser": { "type": "string" },
+        "loginAt": { "type": "string" },
+        "logoutAt": { "type": "string" },
+        "lastActiveAt": { "type": "string" },
+        "durationSeconds": { "type": "number" },
+        "status": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -72,6 +95,10 @@
     "/archive/{archiveId}": {
       "schema": "ArchiveItem",
       "description": "Archived deleted items with 45-day retention"
+    },
+    "/sessions/{sessionId}": {
+      "schema": "SessionLog",
+      "description": "User and admin activity, duration, location and device logs"
     }
   }
 }
