@@ -104,8 +104,6 @@ const seedCoupons = [
 
 // Initialize DB locally
 function initDB() {
-    const isSeededLocally = localStorage.getItem(DB_PREFIX + 'seed_initialized');
-
     let settings = JSON.parse(localStorage.getItem(DB_PREFIX + 'settings'));
     if (!settings) {
         settings = defaultSettings;
@@ -115,40 +113,13 @@ function initDB() {
         localStorage.setItem(DB_PREFIX + 'settings', JSON.stringify(settings));
     }
 
-    if (!isSeededLocally) {
-        if (!localStorage.getItem(DB_PREFIX + 'categories')) {
-            localStorage.setItem(DB_PREFIX + 'categories', JSON.stringify(seedCategories));
+    // Initialize blank tables if not set, never resurrect seed data on refresh
+    const tables = ['categories', 'products', 'coupons', 'archive', 'orders', 'banners', 'admins', 'customers', 'cart', 'wishlist', 'sessions'];
+    tables.forEach(t => {
+        if (localStorage.getItem(DB_PREFIX + t) === null) {
+            localStorage.setItem(DB_PREFIX + t, JSON.stringify([]));
         }
-        if (!localStorage.getItem(DB_PREFIX + 'products')) {
-            localStorage.setItem(DB_PREFIX + 'products', JSON.stringify(seedProducts));
-        }
-        if (!localStorage.getItem(DB_PREFIX + 'coupons')) {
-            localStorage.setItem(DB_PREFIX + 'coupons', JSON.stringify(seedCoupons));
-        }
-        localStorage.setItem(DB_PREFIX + 'seed_initialized', 'true');
-    }
-
-    if (!localStorage.getItem(DB_PREFIX + 'archive')) {
-        localStorage.setItem(DB_PREFIX + 'archive', JSON.stringify([]));
-    }
-    if (!localStorage.getItem(DB_PREFIX + 'orders')) {
-        localStorage.setItem(DB_PREFIX + 'orders', JSON.stringify([]));
-    }
-    if (!localStorage.getItem(DB_PREFIX + 'banners')) {
-        localStorage.setItem(DB_PREFIX + 'banners', JSON.stringify([]));
-    }
-    if (!localStorage.getItem(DB_PREFIX + 'admins')) {
-        localStorage.setItem(DB_PREFIX + 'admins', JSON.stringify([]));
-    }
-    if (!localStorage.getItem(DB_PREFIX + 'customers')) {
-        localStorage.setItem(DB_PREFIX + 'customers', JSON.stringify([]));
-    }
-    if (!localStorage.getItem(DB_PREFIX + 'cart')) {
-        localStorage.setItem(DB_PREFIX + 'cart', JSON.stringify([]));
-    }
-    if (!localStorage.getItem(DB_PREFIX + 'wishlist')) {
-        localStorage.setItem(DB_PREFIX + 'wishlist', JSON.stringify([]));
-    }
+    });
 }
 
 initDB();
