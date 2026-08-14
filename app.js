@@ -147,6 +147,9 @@ const app = {
         if (s.heroBannerHeight) document.documentElement.style.setProperty('--hero-h', s.heroBannerHeight);
         if (s.productImgWidth) document.documentElement.style.setProperty('--prod-img-w', s.productImgWidth);
         if (s.productImgHeight) document.documentElement.style.setProperty('--prod-img-h', s.productImgHeight);
+        if (s.categoryIconWidth) document.documentElement.style.setProperty('--cat-icon-w', s.categoryIconWidth);
+        if (s.categoryIconHeight) document.documentElement.style.setProperty('--cat-icon-h', s.categoryIconHeight);
+        if (s.categoryIconRadius) document.documentElement.style.setProperty('--cat-icon-radius', s.categoryIconRadius);
         
         const topBar = document.querySelector('.top-bar');
         if (topBar && s.topBarText) topBar.textContent = s.topBarText;
@@ -212,11 +215,11 @@ const app = {
                     <h2 class="section-title" style="margin-bottom: 0;">Shop by Category</h2>
                     <a href="#" onclick="app.navigate('categories')" style="color: var(--primary); font-weight: 500; text-decoration: underline;">View All</a>
                 </div>
-                <div class="product-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem;">
+                <div class="product-grid" style="grid-template-columns: repeat(auto-fit, minmax(${s.categoryIconWidth && s.categoryIconWidth.endsWith('px') && parseInt(s.categoryIconWidth) > 0 ? (parseInt(s.categoryIconWidth) < 140 ? s.categoryIconWidth : '160px') : '160px'}, 1fr)); gap: 1.5rem; justify-items: center;">
                     ${categories.map(c => `
-                        <div class="product-card" style="box-shadow: none; background: transparent; cursor:pointer; text-align: center;" onclick="app.navigate('shop', {category: '${c.id}'})">
-                            <div style="width: 100%; aspect-ratio: 4/5; border-radius: 12px; overflow: hidden; margin-bottom: 1rem; background: #eee; position: relative;">
-                                ${c.image ? `<img src="${c.image}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;">No Image</div>`}
+                        <div class="product-card" style="box-shadow: none; background: transparent; cursor:pointer; text-align: center; width: 100%; max-width: ${s.categoryIconWidth && s.categoryIconWidth.endsWith('px') ? s.categoryIconWidth : '220px'};" onclick="app.navigate('shop', {category: '${c.id}'})">
+                            <div style="width: ${s.categoryIconWidth || '100%'}; height: ${s.categoryIconHeight && s.categoryIconHeight !== 'auto' ? s.categoryIconHeight : 'auto'}; aspect-ratio: ${s.categoryIconHeight === 'auto' ? '4/5' : 'unset'}; border-radius: ${s.categoryIconRadius || '12px'}; overflow: hidden; margin: 0 auto 1rem auto; background: #eee; position: relative; display: flex; align-items: center; justify-content: center;">
+                                ${c.image ? `<img src="${c.image}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:0.85rem;">No Image</div>`}
                             </div>
                             <h3 style="font-size: 1.1rem; margin-bottom: 0.25rem;">${c.name}</h3>
                             ${c.comingSoon ? '<span style="color:var(--text-light); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">Coming Soon</span>' : `<span style="color:var(--text-light); font-size: 0.85rem;">Discover</span>`}

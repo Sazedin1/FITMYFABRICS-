@@ -1102,13 +1102,32 @@ const adminApp = {
 
                     <h3 class="mt-2">Product Images</h3>
                     <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="mt-1 form-group">
-                        <div style="flex:1;">
+                        <div style="flex:1; min-width: 180px;">
                             <label>Product Image Width</label>
                             <input type="text" id="a-product-width" value="${s.productImgWidth || '100%'}" placeholder="e.g. 100%, 300px">
                         </div>
-                        <div style="flex:1;">
+                        <div style="flex:1; min-width: 180px;">
                             <label>Product Image Height</label>
                             <input type="text" id="a-product-height" value="${s.productImgHeight || '200px'}" placeholder="e.g. 200px, 300px">
+                        </div>
+                    </div>
+
+                    <h3 class="mt-2">Shop by Category (Icon & Size Customization)</h3>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;" class="mt-1 form-group">
+                        <div style="flex:1; min-width: 160px;">
+                            <label>Category Icon Width</label>
+                            <input type="text" id="a-cat-width" value="${s.categoryIconWidth || '100%'}" placeholder="e.g. 100%, 140px, 100px, 80px">
+                            <small style="color:var(--text-light); font-size:0.75rem; display:block; margin-top:3px;">Width in px (e.g. 120px) or % (e.g. 100%)</small>
+                        </div>
+                        <div style="flex:1; min-width: 160px;">
+                            <label>Category Icon Height</label>
+                            <input type="text" id="a-cat-height" value="${s.categoryIconHeight || '180px'}" placeholder="e.g. 180px, 140px, 100px, 80px, auto">
+                            <small style="color:var(--text-light); font-size:0.75rem; display:block; margin-top:3px;">Height in px (e.g. 140px) or 'auto'</small>
+                        </div>
+                        <div style="flex:1; min-width: 160px;">
+                            <label>Corner Radius / Shape</label>
+                            <input type="text" id="a-cat-radius" value="${s.categoryIconRadius || '12px'}" placeholder="e.g. 12px, 50%, 8px, 0px">
+                            <small style="color:var(--text-light); font-size:0.75rem; display:block; margin-top:3px;">Use 50% for circle, 12px for rounded</small>
                         </div>
                     </div>
 
@@ -1154,6 +1173,9 @@ const adminApp = {
         settings.heroBannerHeight = document.getElementById('a-hero-height').value;
         settings.productImgWidth = document.getElementById('a-product-width').value;
         settings.productImgHeight = document.getElementById('a-product-height').value;
+        settings.categoryIconWidth = document.getElementById('a-cat-width').value;
+        settings.categoryIconHeight = document.getElementById('a-cat-height').value;
+        settings.categoryIconRadius = document.getElementById('a-cat-radius').value;
 
         settings.showFeatured = document.getElementById('a-show-featured').checked;
         settings.showNewArrivals = document.getElementById('a-show-new').checked;

@@ -52,6 +52,9 @@ const defaultSettings = {
     heroBannerHeight: '400px',
     productImgWidth: '100%',
     productImgHeight: '200px',
+    categoryIconWidth: '100%',
+    categoryIconHeight: '180px',
+    categoryIconRadius: '12px',
     globalSizeGuide: `<h4>Round Neck T-Shirt Size Chart (Inches)</h4>
 <p>Round neck t-shirts are often designed with a "Regular Fit." If you are looking for a "Slim Fit," the chest measurements are usually reduced by 1 inch.</p>
 <table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; margin-bottom:1rem; text-align:center;">
