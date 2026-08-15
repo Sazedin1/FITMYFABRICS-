@@ -252,7 +252,7 @@ const app = {
             <section class="container" style="margin-top: 3rem; text-align: center;">
                 <div style="background: linear-gradient(135deg, var(--accent) 0%, #d4af37 100%); padding: 2rem 1.5rem; border-radius: 12px; color: var(--primary); box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto;">
                     <h2 style="font-size: 2rem; margin-bottom: 0.5rem; color: var(--primary);">Build Your Own Combo!</h2>
-                    <p style="font-size: 1rem; max-width: 500px; margin: 0 auto 1.5rem; font-weight: 500;">Mix & match any 6 items of the <strong>same category, size, and price</strong> for just ৳1000. Plus, enjoy FREE delivery on your combo!</p>
+                    <p style="font-size: 1rem; max-width: 500px; margin: 0 auto 1.5rem; font-weight: 500;">Mix & match any 6 items of the <strong>same category and price</strong> for just ৳1000. Plus, enjoy FREE delivery on your combo!</p>
                     <button class="btn" style="background: var(--primary); color: white; padding: 0.75rem 2rem; font-size: 1rem; border-radius: 25px; text-transform: uppercase; letter-spacing: 1px;" onclick="app.navigate('combo')">Build Combo Now</button>
                 </div>
             </section>
@@ -335,7 +335,7 @@ const app = {
         cart.forEach(item => {
             const product = db.getOne('products', item.id);
             if (product && product.category === activeCatId) {
-                const key = `${item.price}-${item.size}`;
+                const key = `${item.price}`;
                 if (!groups[key]) groups[key] = 0;
                 groups[key] += item.qty;
                 if (groups[key] > maxGroupQty) {
@@ -351,11 +351,11 @@ const app = {
 
         let statusText = '';
         if (comboGroups > 0 && comboRemainder === 0) {
-            statusText = `🎉 You've unlocked a Combo! Add 6 more (same size & price) for another!`;
+            statusText = `🎉 You've unlocked a Combo! Add 6 more (same price) for another!`;
         } else if (comboRemainder > 0) {
-            statusText = `🛒 You have ${comboRemainder} items of the same size & price. Add <strong>${needed}</strong> more to get the ৳1000 Combo!`;
+            statusText = `🛒 You have ${comboRemainder} items of the same price. Add <strong>${needed}</strong> more to get the ৳1000 Combo!`;
         } else {
-            statusText = `💡 Select 6 items of the <strong>same size</strong> and <strong>same price</strong> to unlock the ৳1000 Combo Offer!`;
+            statusText = `💡 Select 6 items of the <strong>same price</strong> to unlock the ৳1000 Combo Offer!`;
         }
 
         return `
@@ -366,10 +366,10 @@ const app = {
             
             <div class="container mt-2 mb-2">
                 <!-- Category Tabs -->
-                <div style="display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); justify-content: center;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; padding-bottom: 1.5rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border);">
                     ${categories.map(c => `
-                        <button class="btn ${c.id === activeCatId ? 'btn-primary' : 'btn-outline'}" 
-                                style="white-space: nowrap; border-radius: 20px; padding: 0.5rem 1.5rem;" 
+                        <button class="btn" 
+                                style="border-radius: 8px; padding: 0.75rem 0.5rem; font-weight: bold; font-size: 0.95rem; line-height: 1.2; width: 100%; text-align: center; ${c.id === activeCatId ? 'background: var(--primary); color: white; border: 2px solid var(--primary);' : 'background: white; color: var(--primary); border: 2px solid var(--primary);'}" 
                                 onclick="app.navigate('combo', {category: '${c.id}'})">
                             ${c.name}
                         </button>
@@ -1453,7 +1453,7 @@ const app = {
         cart.forEach(item => {
             const product = db.getOne('products', item.id);
             const category = product ? product.category : 'unknown';
-            const key = `${category}-${item.price}-${item.size}`;
+            const key = `${category}-${item.price}`;
             if (!groups[key]) {
                 groups[key] = { qty: 0, price: item.price };
             }
