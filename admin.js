@@ -1207,13 +1207,19 @@ const adminApp = {
             </div>
             <div style="background:var(--white); padding:2rem; border-radius:8px; max-width:800px;">
                 <form onsubmit="adminApp.saveSettings(event)">
-                    <h3 class="mt-2">Site Status</h3>
+                    <h3 class="mt-2">Site Status & Features</h3>
                     <div class="form-group mt-1">
                         <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
                             <input type="checkbox" id="s-maintenance" ${s.maintenanceMode ? 'checked' : ''} style="width:auto;">
                             <strong>Enable Maintenance Mode</strong>
                         </label>
-                        <small style="color:var(--text-light); display:block; margin-top:0.25rem;">When enabled, customers will see a maintenance screen. Admin dashboard remains accessible.</small>
+                        <small style="color:var(--text-light); display:block; margin-top:0.25rem; margin-bottom:1rem;">When enabled, customers will see a maintenance screen. Admin dashboard remains accessible.</small>
+
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" id="s-combo" ${s.enableComboOffer !== false ? 'checked' : ''} style="width:auto;">
+                            <strong>Enable Combo Offers</strong>
+                        </label>
+                        <small style="color:var(--text-light); display:block; margin-top:0.25rem;">Toggle the 6-items combo offer feature on or off globally.</small>
                     </div>
 
                     <h3 class="mt-2">General</h3>
@@ -1326,6 +1332,7 @@ const adminApp = {
             mailOrderTemplateId: document.getElementById('s-mail-order-template').value,
             mailPublicKey: document.getElementById('s-mail-public').value,
             maintenanceMode: document.getElementById('s-maintenance').checked,
+            enableComboOffer: document.getElementById('s-combo').checked,
             globalSizeGuide: document.getElementById('s-size-guide').value
         };
         db.setSettings(settings);

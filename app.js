@@ -76,6 +76,9 @@ const app = {
             case 'home':
                 content.innerHTML = this.renderHome();
                 break;
+            case 'combo':
+                content.innerHTML = this.renderComboBuilder(params);
+                break;
             case 'shop':
                 content.innerHTML = this.renderShop(params);
                 break;
@@ -151,6 +154,11 @@ const app = {
         if (s.categoryIconHeight) document.documentElement.style.setProperty('--cat-icon-h', s.categoryIconHeight);
         if (s.categoryIconRadius) document.documentElement.style.setProperty('--cat-icon-radius', s.categoryIconRadius);
         
+        const comboLink = document.getElementById('nav-combo-link');
+        if (comboLink) {
+            comboLink.style.display = s.enableComboOffer !== false ? 'inline-block' : 'none';
+        }
+
         const topBar = document.querySelector('.top-bar');
         if (topBar && s.topBarText) topBar.textContent = s.topBarText;
 
@@ -209,6 +217,16 @@ const app = {
                 <span class="hide-mobile" style="opacity:0.3;">|</span>
                 <span style="display:inline-flex; align-items:center; gap:0.5rem;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> CASH ON DELIVERY</span>
             </div>
+            
+            ${s.enableComboOffer !== false ? `
+            <section class="container" style="margin-top: 3rem; text-align: center;">
+                <div style="background: linear-gradient(135deg, var(--accent) 0%, #d4af37 100%); padding: 2rem 1.5rem; border-radius: 12px; color: var(--primary); box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto;">
+                    <h2 style="font-size: 2rem; margin-bottom: 0.5rem; color: var(--primary);">Build Your Own Combo!</h2>
+                    <p style="font-size: 1rem; max-width: 500px; margin: 0 auto 1.5rem; font-weight: 500;">Mix & match any 6 items of the <strong>same category, size, and price</strong> for just ৳1000. Plus, enjoy FREE delivery on your combo!</p>
+                    <button class="btn" style="background: var(--primary); color: white; padding: 0.75rem 2rem; font-size: 1rem; border-radius: 25px; text-transform: uppercase; letter-spacing: 1px;" onclick="app.navigate('combo')">Build Combo Now</button>
+                </div>
+            </section>
+            ` : ''}
 
             <section class="container" style="margin-top: 4rem;">
                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2rem;">
@@ -257,6 +275,93 @@ const app = {
                 </div>
             </section>
             ` : ''}
+        `;
+    },
+
+    renderComboBuilder(params) {
+        const categories = [];
+        const seenNames = new Set();
+        db.get('categories').filter(c => c.status === 'Active').forEach(c => {
+            const nameKey = c.name.toLowerCase().trim();
+            if (!seenNames.has(nameKey)) {
+                seenNames.add(nameKey);
+                categories.push(c);
+            }
+        });
+        
+        if (categories.length === 0) return '<div class="container mt-2"><p>No categories available.</p></div>';
+
+        let activeCatId = params.category || categories[0].id;
+        let activeCat = categories.find(c => c.id === activeCatId) || categories[0];
+        activeCatId = activeCat.id;
+
+        let products = db.get('products').filter(p => p.status === 'Active' && p.category === activeCatId);
+
+        // Check how many items of this category are in cart
+        const cart = db.get('cart');
+        let maxGroupQty = 0;
+        const groups = {};
+
+        cart.forEach(item => {
+            const product = db.getOne('products', item.id);
+            if (product && product.category === activeCatId) {
+                const key = `${item.price}-${item.size}`;
+                if (!groups[key]) groups[key] = 0;
+                groups[key] += item.qty;
+                if (groups[key] > maxGroupQty) {
+                    maxGroupQty = groups[key];
+                }
+            }
+        });
+
+        // We show status based on the closest group to 6
+        const comboRemainder = maxGroupQty % 6;
+        const comboGroups = Math.floor(maxGroupQty / 6);
+        const needed = 6 - comboRemainder;
+
+        let statusText = '';
+        if (comboGroups > 0 && comboRemainder === 0) {
+            statusText = `🎉 You've unlocked a Combo! Add 6 more (same size & price) for another!`;
+        } else if (comboRemainder > 0) {
+            statusText = `🛒 You have ${comboRemainder} items of the same size & price. Add <strong>${needed}</strong> more to get the ৳1000 Combo!`;
+        } else {
+            statusText = `💡 Select 6 items of the <strong>same size</strong> and <strong>same price</strong> to unlock the ৳1000 Combo Offer!`;
+        }
+
+        return `
+            <div style="background: var(--primary); color: var(--accent); padding: 1rem 0; text-align: center;">
+                <h1 style="font-size: 2rem; margin-bottom: 0.5rem; color: #fff;">Build Your Combo</h1>
+                <p style="font-size: 1.1rem; letter-spacing: 1px;">Any 6 items from the same category for ৳1000 + Free Delivery!</p>
+            </div>
+            
+            <div class="container mt-2 mb-2">
+                <!-- Category Tabs -->
+                <div style="display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); justify-content: center;">
+                    ${categories.map(c => `
+                        <button class="btn ${c.id === activeCatId ? 'btn-primary' : 'btn-outline'}" 
+                                style="white-space: nowrap; border-radius: 20px; padding: 0.5rem 1.5rem;" 
+                                onclick="app.navigate('combo', {category: '${c.id}'})">
+                            ${c.name}
+                        </button>
+                    `).join('')}
+                </div>
+
+                <!-- Combo Status Alert -->
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 1rem; border-radius: 8px; text-align: center; margin-bottom: 2rem; font-size: 1.1rem;">
+                    ${statusText}
+                </div>
+
+                ${products.length === 0 ? `
+                    <div style="text-align:center; padding: 4rem 0;">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-light); margin-bottom:1rem;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <h3>No products found in ${activeCat.name}</h3>
+                    </div>
+                ` : `
+                    <div class="product-grid">
+                        ${products.map(p => this.renderProductCard(p)).join('')}
+                    </div>
+                `}
+            </div>
         `;
     },
 
@@ -358,6 +463,20 @@ const app = {
         const product = db.getOne('products', id);
         if (!product) return '<div class="container mt-2"><p>Product not found.</p></div>';
         
+        let isOutOfStock = false;
+        if (typeof product.stock !== 'undefined' && product.stock <= 0) {
+            isOutOfStock = true;
+        } else if (product.sizes && product.sizes.length > 0 && product.sizeStock) {
+            let hasStock = false;
+            for (let s of product.sizes) {
+                if (typeof product.sizeStock[s] === 'undefined' || product.sizeStock[s] > 0) {
+                    hasStock = true;
+                    break;
+                }
+            }
+            if (!hasStock) isOutOfStock = true;
+        }
+
         const cat = db.getOne('categories', product.category);
         const priceHtml = product.discountPrice 
             ? `<span class="price-old">${formatMoney(product.price)}</span> <span>${formatMoney(product.discountPrice)}</span>`
@@ -426,7 +545,10 @@ const app = {
                         </div>
 
                         <div style="display:flex; gap:1rem; margin-top: 2rem;">
-                            <button class="btn btn-accent" style="flex:1; padding: 1rem; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;" onclick="app.addToCart('${product.id}')">Add to Cart</button>
+                            ${isOutOfStock 
+                                ? `<button class="btn" style="flex:1; padding: 1rem; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; background:#ccc; color:#666; cursor:not-allowed;" disabled>Out of Stock</button>`
+                                : `<button class="btn btn-accent" style="flex:1; padding: 1rem; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;" onclick="app.addToCart('${product.id}')">Add to Cart</button>`
+                            }
                             <button class="btn btn-outline" style="padding: 1rem; width: 60px; display: flex; align-items: center; justify-content: center;" onclick="app.toggleWishlist('${product.id}')">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="${this.isInWishlist(product.id) ? 'var(--danger)' : 'none'}" stroke="${this.isInWishlist(product.id) ? 'var(--danger)' : 'currentColor'}" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                             </button>
@@ -474,6 +596,20 @@ const app = {
     },
 
     renderProductCard(product) {
+        let isOutOfStock = false;
+        if (typeof product.stock !== 'undefined' && product.stock <= 0) {
+            isOutOfStock = true;
+        } else if (product.sizes && product.sizes.length > 0 && product.sizeStock) {
+            let hasStock = false;
+            for (let s of product.sizes) {
+                if (typeof product.sizeStock[s] === 'undefined' || product.sizeStock[s] > 0) {
+                    hasStock = true;
+                    break;
+                }
+            }
+            if (!hasStock) isOutOfStock = true;
+        }
+
         const priceHtml = product.discountPrice 
             ? `<span class="price-old">${formatMoney(product.price)}</span> <span>${formatMoney(product.discountPrice)}</span>`
             : `<span>${formatMoney(product.price)}</span>`;
@@ -488,8 +624,9 @@ const app = {
         return `
             <div class="product-card">
                 <div class="product-badges">
-                    ${product.discountPrice ? '<span class="badge-tag badge-sale">Sale</span>' : ''}
-                    ${product.newArrival ? '<span class="badge-tag badge-new">New</span>' : ''}
+                    ${isOutOfStock ? '<span class="badge-tag" style="background:var(--danger);color:#fff;">Out of Stock</span>' : ''}
+                    ${product.discountPrice && !isOutOfStock ? '<span class="badge-tag badge-sale">Sale</span>' : ''}
+                    ${product.newArrival && !isOutOfStock ? '<span class="badge-tag badge-new">New</span>' : ''}
                 </div>
                 <button class="wishlist-btn ${isWished ? 'active' : ''}" onclick="app.toggleWishlist('${product.id}', this)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="${isWished ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
@@ -500,7 +637,10 @@ const app = {
                 <div class="product-info">
                     <h3 class="product-title" style="cursor:pointer;" onclick="app.navigate('product', {id: '${product.id}'})">${product.name}</h3>
                     <div class="product-price">${priceHtml}</div>
-                    <button class="add-to-cart-btn" onclick="app.quickAddToCart('${product.id}')">Quick Add</button>
+                    ${isOutOfStock 
+                        ? `<button class="add-to-cart-btn" style="background:#ccc; color:#666; cursor:not-allowed;" disabled>Out of Stock</button>`
+                        : `<button class="add-to-cart-btn" onclick="app.quickAddToCart('${product.id}')">Quick Add</button>`
+                    }
                 </div>
             </div>
         `;
@@ -522,12 +662,18 @@ const app = {
         }
 
         const c = this.currentCustomer;
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const cartCalc = this.calculateCart();
         const settings = db.getSettings();
         
-        const deliveryFee = subtotal >= settings.freeDeliveryThreshold ? 0 : 
+        let deliveryFee = cartCalc.finalSubtotal >= settings.freeDeliveryThreshold ? 0 : 
                             (c.district === 'Dhaka' ? parseInt(settings.deliveryInside || 0) : parseInt(settings.deliveryOutside || 0));
-        const total = subtotal + deliveryFee;
+        
+        // Free delivery for combos
+        if (cartCalc.comboCount > 0) {
+            deliveryFee = 0;
+        }
+
+        const total = cartCalc.finalSubtotal + deliveryFee;
 
         return `
             <div class="container mt-2 mb-2">
@@ -606,18 +752,24 @@ const app = {
                             
                             <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
                                 <span>Subtotal</span>
-                                <span>${formatMoney(subtotal)}</span>
+                                <span>${formatMoney(cartCalc.subtotal)}</span>
                             </div>
+                            ${cartCalc.comboDiscount > 0 ? `
+                            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; color: var(--danger);">
+                                <span>Combo Discount</span>
+                                <span>-${formatMoney(cartCalc.comboDiscount)}</span>
+                            </div>
+                            ` : ''}
                             <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
                                 <span>Delivery Fee</span>
                                 <span id="summary-delivery">${deliveryFee === 0 ? 'Free' : formatMoney(deliveryFee)}</span>
                             </div>
                             ${app.appliedPromo ? `
                             <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; color: #458500;">
-                                <span>Discount (${app.appliedPromo.code})</span>
+                                <span>Promo Discount (${app.appliedPromo.code})</span>
                                 <span id="summary-discount">- BDT ${app.appliedPromo.amount}</span>
                             </div>
-                            ` : '<div id="summary-discount-row" style="display:none; justify-content:space-between; margin-bottom:0.5rem; color: #458500;"><span>Discount</span><span id="summary-discount"></span></div>'}
+                            ` : '<div id="summary-discount-row" style="display:none; justify-content:space-between; margin-bottom:0.5rem; color: #458500;"><span>Promo Discount</span><span id="summary-discount"></span></div>'}
                             <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.25rem; margin-top:1rem; padding-top:1rem; border-top: 1px solid var(--border);">
                                 <span>Total</span>
                                 <span id="summary-total">${formatMoney(total - (app.appliedPromo ? app.appliedPromo.amount : 0))}</span>
@@ -1215,6 +1367,7 @@ const app = {
         db.set('cart', cart);
         this.updateCartCount();
         this.renderCart();
+        this.renderCurrentViewSilent();
         this.toggleCart();
         showToast('Added to cart');
     },
@@ -1225,6 +1378,7 @@ const app = {
         db.set('cart', cart);
         this.updateCartCount();
         this.renderCart();
+        this.renderCurrentViewSilent();
     },
 
     updateCartQty(index, delta) {
@@ -1250,7 +1404,49 @@ const app = {
         }
         
         db.set('cart', cart);
+        this.updateCartCount();
         this.renderCart();
+        this.renderCurrentViewSilent();
+    },
+
+    calculateCart() {
+        const cart = db.get('cart');
+        const settings = db.getSettings();
+        const enableComboOffer = settings.enableComboOffer !== false;
+
+        let subtotal = 0;
+        let comboDiscount = 0;
+        let comboCount = 0;
+
+        const groups = {};
+
+        cart.forEach(item => {
+            const product = db.getOne('products', item.id);
+            const category = product ? product.category : 'unknown';
+            const key = `${category}-${item.price}-${item.size}`;
+            if (!groups[key]) {
+                groups[key] = { qty: 0, price: item.price };
+            }
+            groups[key].qty += item.qty;
+            subtotal += (item.price * item.qty);
+        });
+
+        if (enableComboOffer) {
+            for (const key in groups) {
+                const group = groups[key];
+                if (group.qty >= 6) {
+                    const combos = Math.floor(group.qty / 6);
+                    comboCount += combos;
+                    const normalPriceFor6 = 6 * group.price;
+                    if (normalPriceFor6 > 1000) {
+                        comboDiscount += (normalPriceFor6 - 1000) * combos;
+                    }
+                }
+            }
+        }
+        
+        const finalSubtotal = subtotal - comboDiscount;
+        return { subtotal, comboDiscount, finalSubtotal, comboCount };
     },
 
     renderCart() {
@@ -1285,9 +1481,18 @@ const app = {
             </div>
         `).join('');
 
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        document.getElementById('cart-subtotal').textContent = formatMoney(subtotal);
-        document.getElementById('cart-total').textContent = formatMoney(subtotal); // Shipping added at checkout
+        const cartCalc = this.calculateCart();
+        document.getElementById('cart-subtotal').textContent = formatMoney(cartCalc.subtotal);
+        
+        const discountRow = document.getElementById('cart-discount-row');
+        if (cartCalc.comboDiscount > 0) {
+            discountRow.style.display = 'flex';
+            document.getElementById('cart-discount').textContent = '-' + formatMoney(cartCalc.comboDiscount);
+        } else {
+            discountRow.style.display = 'none';
+        }
+
+        document.getElementById('cart-total').textContent = formatMoney(cartCalc.finalSubtotal); // Shipping added at checkout
     },
 
     updateCartCount() {
@@ -1380,8 +1585,7 @@ const app = {
     },
 
     updateCheckoutTotal() {
-        const cart = db.get('cart');
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const cartCalc = this.calculateCart();
         const settings = db.getSettings();
         
         let district = 'Dhaka';
@@ -1393,11 +1597,14 @@ const app = {
         }
         
         let deliveryFee = 0;
-        if (subtotal < settings.freeDeliveryThreshold) {
+        if (cartCalc.finalSubtotal < settings.freeDeliveryThreshold) {
             deliveryFee = district === 'Dhaka' ? parseInt(settings.deliveryInside || 0) : parseInt(settings.deliveryOutside || 0);
         }
+        if (cartCalc.comboCount > 0) {
+            deliveryFee = 0;
+        }
 
-        let total = subtotal + deliveryFee;
+        let total = cartCalc.finalSubtotal + deliveryFee;
         
         if (this.appliedPromo) {
             total = total - this.appliedPromo.amount;
@@ -1502,7 +1709,7 @@ const app = {
         if (!this.currentCustomer) return;
 
         const settings = db.getSettings();
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const cartCalc = this.calculateCart();
         
         let district = this.currentCustomer.district;
         const isGift = document.getElementById('co-gift') && document.getElementById('co-gift').checked;
@@ -1511,8 +1718,11 @@ const app = {
         }
         
         let deliveryFee = 0;
-        if (subtotal < settings.freeDeliveryThreshold) {
+        if (cartCalc.finalSubtotal < settings.freeDeliveryThreshold) {
             deliveryFee = district === 'Dhaka' ? parseInt(settings.deliveryInside || 0) : parseInt(settings.deliveryOutside || 0);
+        }
+        if (cartCalc.comboCount > 0) {
+            deliveryFee = 0;
         }
 
         const rawOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
@@ -1539,12 +1749,12 @@ const app = {
         const paymentMethod = document.getElementById('co-payment').value;
         const trxIdElement = document.getElementById('co-trxid');
 
-        let finalTotal = subtotal + deliveryFee;
-        let discount = 0;
+        let finalTotal = cartCalc.finalSubtotal + deliveryFee;
+        let discount = cartCalc.comboDiscount; // Track combo discount as well
         
         if (this.appliedPromo) {
-            discount = this.appliedPromo.amount;
-            finalTotal = finalTotal - discount;
+            discount += this.appliedPromo.amount;
+            finalTotal = finalTotal - this.appliedPromo.amount;
             if (finalTotal < 0) finalTotal = 0;
         }
 
@@ -1556,9 +1766,9 @@ const app = {
             isGift: isGift,
             giftDetails: giftDetails,
             items: cart,
-            subtotal: subtotal,
+            subtotal: cartCalc.subtotal,
             discount: discount,
-            promoCode: this.appliedPromo ? this.appliedPromo.code : null,
+            promoCode: this.appliedPromo ? this.appliedPromo.code : (cartCalc.comboCount > 0 ? 'COMBO_6' : null),
             deliveryFee: deliveryFee,
             total: finalTotal,
             deliveryMethod: isGift ? (document.getElementById('gift-district') ? document.getElementById('gift-district').value : district) : district,

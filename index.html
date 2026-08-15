@@ -33,6 +33,7 @@
             <nav class="nav-links">
                 <a href="#" onclick="app.navigate('home')">Home</a>
                 <a href="#" onclick="app.navigate('shop')">Shop</a>
+                <a href="#" id="nav-combo-link" onclick="app.navigate('combo')" style="color:var(--accent); font-weight:bold;">Combo Offers</a>
                 <a href="#" onclick="app.navigate('categories')">Categories</a>
                 <a href="#" onclick="app.navigate('shop', {filter: 'new'})">New Arrivals</a>
                 <a href="#" onclick="app.navigate('shop', {filter: 'sale'})">Sale</a>
@@ -224,6 +225,10 @@
             <div class="cart-summary-row">
                 <span>Subtotal</span>
                 <span id="cart-subtotal">৳0</span>
+            </div>
+            <div class="cart-summary-row" id="cart-discount-row" style="display:none; color: var(--danger);">
+                <span>Combo Discount</span>
+                <span id="cart-discount">-৳0</span>
             </div>
             <div class="cart-summary-row">
                 <span>Shipping</span>
