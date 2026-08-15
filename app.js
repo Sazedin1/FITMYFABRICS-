@@ -37,7 +37,25 @@ const app = {
             return;
         }
 
-        this.navigate('home');
+        window.addEventListener('popstate', (event) => {
+            if (event.state && event.state.page) {
+                this.navigate(event.state.page, event.state.params, true, false);
+            } else {
+                this.navigate('home', {}, true, false);
+            }
+        });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const initPage = urlParams.get('page') || 'home';
+        const initParams = {};
+        for (const [key, value] of urlParams.entries()) {
+            if (key !== 'page') {
+                initParams[key] = value;
+            }
+        }
+        
+        this.navigate(initPage, initParams, true, true);
+        
         document.getElementById('current-year').textContent = new Date().getFullYear();
         
         try {
@@ -51,7 +69,7 @@ const app = {
         }
     },
 
-    navigate(page, params = {}, track = true) {
+    navigate(page, params = {}, track = true, pushHistory = true) {
         const s = db.getSettings();
         const content = document.getElementById('app-content');
         if (!content) return;
@@ -67,6 +85,18 @@ const app = {
 
         this.currentPage = page;
         this.currentParams = params;
+
+        if (pushHistory) {
+            let url = `?page=${page}`;
+            if (params && Object.keys(params).length > 0) {
+                for (const key in params) {
+                    url += `&${key}=${params[key]}`;
+                }
+            }
+            if (window.location.search !== url) {
+                window.history.pushState({ page, params }, '', url);
+            }
+        }
 
         if (track && window.tracker) {
             window.tracker.logAction(`Visited ${page.toUpperCase()}`, page, params && Object.keys(params).length ? JSON.stringify(params) : '');
@@ -114,7 +144,7 @@ const app = {
     renderCurrentViewSilent() {
         // Soft refresh without scroll reset or tracking loop
         if (this.currentPage && this.currentPage !== 'checkout' && this.currentPage !== 'product') {
-            this.navigate(this.currentPage, this.currentParams || {}, false);
+            this.navigate(this.currentPage, this.currentParams || {}, false, false);
         }
     },
 
